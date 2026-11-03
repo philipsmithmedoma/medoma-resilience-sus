@@ -1,3 +1,4 @@
+import { resetStoreTo } from '@/test/packs';
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { useStore } from './store';
 import { getRoadModel, loadRoadModel } from '@/lib/roadModel';
@@ -7,6 +8,7 @@ import { blockedWayIdSet } from '@/lib/reachability';
 const s = () => useStore.getState();
 
 beforeAll(async () => {
+  resetStoreTo('karolinska');
   await loadRoadModel(useStore.getState().pack);
   useStore.getState().setHomeGeoReady();
 });
@@ -28,7 +30,7 @@ function createFrom(id: string) {
 }
 
 describe('disruption from message (SPEC.md § 13.4)', () => {
-  beforeEach(() => s().reset());
+  beforeEach(() => resetStoreTo('karolinska'));
 
   it('creating from the road message blocks the named road, with an end 4 hours ahead and the message id in the log', () => {
     const t0 = s().clock;

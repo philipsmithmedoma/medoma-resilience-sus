@@ -12,9 +12,9 @@ describe('Hospital at Home patient list (SPEC.md § 11.6)', () => {
 
   it('filters by zone, equipment and visit today, alone and combined', () => {
     expect(filterPatients(all, { ...NO_FILTERS, zone: 'huddinge' })).toHaveLength(20);
-    const oxygen = filterPatients(all, { ...NO_FILTERS, equipment: 'Oxygen' });
+    const oxygen = filterPatients(all, { ...NO_FILTERS, equipment: 'Self-monitoring kit' });
     expect(oxygen.length).toBeGreaterThan(0);
-    expect(oxygen.every((p) => p.equipment.includes('Oxygen'))).toBe(true);
+    expect(oxygen.every((p) => p.equipment.includes('Self-monitoring kit'))).toBe(true);
     const visits = filterPatients(all, { ...NO_FILTERS, visitToday: true });
     expect(visits.every((p) => p.visitToday)).toBe(true);
     expect(visits.length).toBe(all.filter((p) => p.visitToday).length);

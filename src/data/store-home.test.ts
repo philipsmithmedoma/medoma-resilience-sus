@@ -1,3 +1,4 @@
+import { resetStoreTo } from '@/test/packs';
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { useStore } from './store';
 import { NO_DISRUPTIONS, disruptionCount, impact } from '@/lib/reachability';
@@ -7,15 +8,16 @@ const s = () => useStore.getState();
 
 // The road graph (OpenStreetMap data, or the fixture) decides how many patients a closed road affects.
 beforeAll(async () => {
+  resetStoreTo('karolinska');
   await loadRoadModel(useStore.getState().pack);
   useStore.getState().setHomeGeoReady();
 });
 
 describe('Hospital at Home view state (SPEC.md § 11.5)', () => {
-  beforeEach(() => s().reset());
+  beforeEach(() => resetStoreTo('karolinska'));
 
   it('starts with patients and roads on, electricity and water off, no mode, nothing selected or disrupted', () => {
-    expect(s().home.layers).toEqual({ patients: true, roads: true, el: false, water: false });
+    expect(s().home.layers).toEqual({ patients: true, roads: true, el: false, water: false, tele: false });
     expect(s().home).toMatchObject({ mode: null, selectedNode: null });
     expect(disruptionCount(s().home)).toBe(0);
   });
@@ -53,7 +55,7 @@ describe('Hospital at Home view state (SPEC.md § 11.5)', () => {
 });
 
 describe('Hospital at Home disruptions (SPEC.md § 11.5)', () => {
-  beforeEach(() => s().reset());
+  beforeEach(() => resetStoreTo('karolinska'));
   const last = () => s().log[s().log.length - 1];
 
   it('blocks and unblocks a road node, logging each toggle with the number of affected patients', () => {
@@ -131,7 +133,7 @@ describe('Hospital at Home disruptions (SPEC.md § 11.5)', () => {
     s().selectHomeNode('r-vasterbron');
     s().toggleBlockedNode('r-centralbron');
     s().setHomeMode('roads');
-    s().reset();
+    resetStoreTo('karolinska');
     expect(s().home.layers.water).toBe(false);
     expect(s().home).toMatchObject({ selectedNode: null, mode: null });
     expect(disruptionCount(s().home)).toBe(0);
@@ -139,7 +141,7 @@ describe('Hospital at Home disruptions (SPEC.md § 11.5)', () => {
 });
 
 describe('Hospital at Home presets (SPEC.md § 11.5)', () => {
-  beforeEach(() => s().reset());
+  beforeEach(() => resetStoreTo('karolinska'));
   const last = () => s().log[s().log.length - 1];
 
   it('"Bro avstängd" closes Essingeleden and Centralbron', () => {

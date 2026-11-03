@@ -1,3 +1,4 @@
+import { resetStoreTo } from '@/test/packs';
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { useStore } from './store';
 import { loadRoadModel, getRoadModel } from '@/lib/roadModel';
@@ -5,12 +6,13 @@ import { impact } from '@/lib/reachability';
 
 const s = () => useStore.getState();
 beforeAll(async () => {
+  resetStoreTo('karolinska');
   await loadRoadModel(useStore.getState().pack);
   useStore.getState().setHomeGeoReady();
 });
 
 describe('reassignment (SPEC.md § 14.2)', () => {
-  beforeEach(() => s().reset());
+  beforeEach(() => resetStoreTo('karolinska'));
 
   it('"Reassign to <team>" is the Send team action: Planned, the team recorded, one log entry', (ctx) => {
     if (getRoadModel()!.source !== 'fixture') ctx.skip(); // the closures below are chosen for the hand-written fixture

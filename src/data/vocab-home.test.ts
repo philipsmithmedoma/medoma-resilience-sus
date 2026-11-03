@@ -78,6 +78,8 @@ describe('vocab parity for Hospital at Home (SPEC.md § 11.7 batch 5)', () => {
       ['Bro avstängd', 'Bridge closed'],
       ['Elavbrott', 'Power outage'],
       ['Vattenstörning', 'Water disruption'],
+      ['Värmebölja', 'Heatwave'],
+      ['Kyla med elavbrott', 'Cold with power outage'],
     ]);
     expect([sv.HOME.impact.headline, en.HOME.impact.headline]).toEqual(['{n} av {total} patienter påverkade', '{n} of {total} patients affected']);
   });

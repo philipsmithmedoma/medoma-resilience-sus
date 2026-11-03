@@ -9,6 +9,7 @@ const DOT_CLASS: Record<HomeLayerKey, string> = {
   roads: 'bg-text-secondary',
   el: 'bg-olive',
   water: 'bg-teal',
+  tele: 'bg-indigo',
 };
 
 /** Layer toggles above the map (SPEC.md § 11.6): patients, roads, electricity, water. Chips with a colour dot and a text label. */

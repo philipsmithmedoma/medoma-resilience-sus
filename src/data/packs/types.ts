@@ -162,7 +162,9 @@ export interface SourceRef {
 
 // ---------------------------------------------------------------------------
 // Hospital at Home (SPEC.md § 11.3, DATA.md § 11) – additive
-export type HomeEquipment = 'Oxygen' | 'IV infusion' | 'Monitoring' | 'Home ventilator' | 'Home dialysis';
+export type HomeEquipment = 'IV stand' | 'Pump' | 'Oxygen stationary' | 'Oxygen portable' | 'Self-monitoring kit';
+export type MonitoringLevel = 'none' | 'spot' | 'continuous';
+export type MonitoringReason = 'arrhythmia' | 'sepsis' | 'respiratory' | 'other';
 export type ZoneId = string;
 
 /**
@@ -179,6 +181,8 @@ export interface HomeZone {
   lng: number;
   radiusKm: number;
   graphNode: GraphNodeId; // the road-graph vertex the zone hangs on (usually itself: `zone:<id>`)
+  /** An urban zone: the mobile network is assumed to fall 1 h after a power outage begins, elsewhere after 4 h (SPEC.md § 6). */
+  urban: boolean;
   coordConfidence: Confidence;
   coordSource: string;
 }
@@ -187,18 +191,46 @@ export interface HomePatient {
   id: string;
   familyName: string;
   givenName: string;
+  /** Synthetic `YYYYMMDD-XXXX`; the birth date matches the age and the last four digits fail the check digit, so it can never be real. */
+  personalNumber: string;
   age: number;
   zone: ZoneId;
-  street: string; // the street the patient lives on (OpenStreetMap, or the fixture's) – SPEC.md § 12.5
+  street: string; // the street the patient lives on (OpenStreetMap, or the fixture's)
   houseNo: number; // illustrative, 1–60
   lat: number; // synthetic, a vertex of a street within the zone radius
   lng: number;
-  team: string; // illustrative ASIH team name
+  team: string; // the name of the patient's home team
   equipment: HomeEquipment[];
-  batteryHours: number | null; // null when no powered equipment
+  /** Hours the powered equipment, or the phone or hub of a self-monitoring kit, runs on its battery; 0 for a stationary concentrator; null when nothing depends on a battery. */
+  batteryHours: number | null;
+  /** Spare oxygen tubes of a concentrator patient, illustrative 4–10 h; null otherwise. */
+  backupHours: number | null;
+  monitoringLevel: MonitoringLevel;
+  monitoringReason: MonitoringReason | null;
+  /** Pump patients only: the antibiotic in the elastomeric pump, and whether its stability is limited by heat. */
+  antibiotic: string | null;
+  heatSensitive: boolean;
   visitToday: boolean;
-  elCritical: boolean; // derived: Oxygen, IV infusion or Home ventilator
-  waterCritical: boolean; // derived: Home dialysis
+  elCritical: boolean; // derived: has an oxygen concentrator
+  enrolledOn: string; // ISO date, illustrative
+  plannedDischargeOn: string; // ISO date, illustrative
+  appLoggedIn: boolean; // the patient app (Medoma Care); 60 % are logged in
+}
+
+export type RegistryStatus = 'assessment' | 'paused' | 'discharged';
+/** A synthetic row of the patient list that is not enrolled (SPEC.md § 8); it has no home on the map and takes no part in the impact. */
+export interface RegistryExtra {
+  id: string;
+  familyName: string;
+  givenName: string;
+  personalNumber: string;
+  age: number;
+  zone: ZoneId;
+  team: string;
+  status: RegistryStatus;
+  enrolledOn: string | null;
+  plannedDischargeOn: string | null;
+  appLoggedIn: boolean;
 }
 
 export type InfraLayer = 'water' | 'el' | 'roads';
@@ -242,20 +274,22 @@ export interface InfraLink {
 
 /** A demo scenario: a set of disruptions applied with one button (SPEC.md § 6). */
 export interface HomeDisruptionPreset {
-  key: 'bridge' | 'power' | 'water';
+  key: 'bridge' | 'power' | 'water' | 'heat' | 'cold';
   name: LocalizedText;
   blockedNodes: string[];
   powerOutZones: ZoneId[];
   waterOutZones: ZoneId[];
+  heatZones?: ZoneId[];
+  coldZones?: ZoneId[];
   /** The sentence under the demo scenario button. */
   description: LocalizedText;
 }
 
 /** A disruption as a record in time (SPEC.md § 13.2); the blocked and outage sets are derived from the active ones. */
-export type HomeDisruptionKind = 'road' | 'power' | 'water';
-export type HomeDisruptionSource = 'map' | 'preset' | 'message';
-/** What `target` names: an OSM way id, a road key (`name` or `name|ref`), a road InfraNode id, or a ZoneId. */
-export type HomeDisruptionTargetKind = 'way' | 'road' | 'node' | 'zone';
+export type HomeDisruptionKind = 'road' | 'power' | 'water' | 'tele' | 'heat' | 'cold' | 'supplier';
+export type HomeDisruptionSource = 'map' | 'preset' | 'message' | 'hypothesis' | 'panel';
+/** What `target` names: an OSM way id, a road key (`name` or `name|ref`), a road InfraNode id, a ZoneId, or the pack (a supplier). */
+export type HomeDisruptionTargetKind = 'way' | 'road' | 'node' | 'zone' | 'pack';
 export type HomeDisruptionEnd = 'manual' | 'expected' | 'reset' | 'replaced';
 export interface HomeDisruption {
   id: string;
@@ -284,6 +318,8 @@ export interface HomeTeam {
   baseLabel: LocalizedText;
   cars: number;
   phone: string; // placeholder "0XX-XXX XX XX"
+  /** Fictional staff; a zone's Patientansvarig is one of them, the same for every patient in the zone. */
+  staff: string[];
 }
 
 export type HomeVisitStatus = 'planned' | 'moved' | 'cancelled' | 'done';
@@ -304,11 +340,14 @@ export interface HomeWork {
   assignedTeam: TeamId | null;
   /** The site the patient is brought in to ("Ta in"); listed under "Överlämningar till sjukhus" on the overview page. */
   bringInSite: string | null;
+  /** Clock minute of the handover decision, and the reasons that applied then (the list "Överlämningar till sjukhus"). */
+  bringInAt: number | null;
+  bringInReasons: string[];
 }
 
 // ---------------------------------------------------------------------------
 // Home packs (SPEC.md § 14.5): the Hospital at Home data of one hospital, kept apart from the hospital pack.
-export type HomePackId = 'karolinska';
+export type HomePackId = 'sus' | 'karolinska';
 export interface HomeSite {
   id: string; // 'solna', 'huddinge'
   name: string;
@@ -345,6 +384,8 @@ export interface HomePack {
   scopeMenu: 'always' | 'whenActive';
   zones: HomeZone[];
   patients: HomePatient[];
+  /** Synthetic non-enrolled rows of the patient list: two under assessment, two paused, three discharged. */
+  registryExtras: RegistryExtra[];
   teams: HomeTeam[];
   visits: HomeVisit[];
   infraNodes: InfraNode[];
@@ -357,6 +398,10 @@ export interface HomePack {
   osmMatches: HomeOsmMatch[];
   osmExtra: Record<string, Omit<InfraNode, 'lat' | 'lng' | 'coordConfidence' | 'coordSource'>>;
   geo: Record<GeoFileKind, GeoLoader>;
+  /** The cold chain (SPEC.md § 6): days of infusers in stock at the unit, illustrative. */
+  unitStock: { infusorsDays: Figure };
+  /** Spare equipment added to the in-use count (SPEC.md § 8), illustrative. */
+  equipmentStock: Record<HomeEquipment, Figure>;
 }
 
 
@@ -373,6 +418,9 @@ export interface DataPack {
   infraLinks: InfraLink[];
   homeSources: SourceRef[]; // the pack's own source list (DATA.md § 4)
   homePresets: HomeDisruptionPreset[];
+  homeExtras: RegistryExtra[];
+  homeUnitStock: HomePack['unitStock'];
+  homeEquipmentStock: HomePack['equipmentStock'];
   homeTeams: HomeTeam[];
   homeVisits: HomeVisit[];
   /** Illustrative notices that can become disruptions (SPEC.md § 6, DATA.md § 5). */

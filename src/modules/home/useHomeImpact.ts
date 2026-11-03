@@ -7,17 +7,11 @@ import { disruptionCount, impact, type Impact } from '@/lib/reachability';
 export function useHomeImpact(): { impact: Impact; active: boolean } {
   const pack = useStore((s) => s.pack);
   const scope = useStore((s) => s.scope);
-  const blockedWays = useStore((s) => s.home.blockedWays);
-  const blockedRoads = useStore((s) => s.home.blockedRoads);
-  const geoReady = useStore((s) => s.home.geoReady);
-  const blockedNodes = useStore((s) => s.home.blockedNodes);
-  const powerOutZones = useStore((s) => s.home.powerOutZones);
-  const waterOutZones = useStore((s) => s.home.waterOutZones);
-  const powerStart = useStore((s) => s.home.powerStart);
+  const home = useStore((s) => s.home);
   const clock = useStore((s) => s.clock);
-  return useMemo(() => {
-    const state = { blockedWays, blockedRoads, blockedNodes, powerOutZones, waterOutZones, powerStart };
-    return { impact: impact(pack, state, homeSitesInScope(pack.homePackId, scope), undefined, clock), active: disruptionCount(state) > 0 };
-    // geoReady: the road graph loads after the first render, so the result is computed again when it is there.
-  }, [pack, scope, blockedWays, blockedRoads, blockedNodes, powerOutZones, waterOutZones, powerStart, clock, geoReady]);
+  return useMemo(
+    () => ({ impact: impact(pack, home, homeSitesInScope(pack.homePackId, scope), undefined, clock), active: disruptionCount(home) > 0 }),
+    // home.geoReady is part of home: the road graph loads after the first render, so the result is computed again when it is there.
+    [pack, scope, home, clock],
+  );
 }

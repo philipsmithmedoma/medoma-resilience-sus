@@ -3,7 +3,7 @@
 // to the audit log through logEntry() (by way of logHome, which marks the entry as this module's) like every other action.
 import type { StateCreator } from 'zustand';
 import type { AppStore } from './store';
-import type { DataPack, HomeDisruption, HomePackId, HomeVisit, HomeWork, HomeWorkStatus, TeamId, HomeDisruptionKind, HomeDisruptionSource, HomeDisruptionTargetKind, InfraLayer, InfraNode, LocalizedText, ZoneId } from './types';
+import type { DataPack, HomeDisruption, HomeDisruptionPreset, HomePackId, HomeVisit, HomeWork, HomeWorkStatus, TeamId, HomeDisruptionKind, HomeDisruptionSource, HomeDisruptionTargetKind, InfraLayer, InfraNode, LocalizedText, ZoneId } from './types';
 import { lt, same, t } from '@/lib/i18n';
 import { CURRENT_USER, SYSTEM_ACTOR } from './vocab';
 import { deriveSets, expiredIds } from '@/lib/disruptions';
@@ -15,14 +15,19 @@ import { getAppliedNodes } from '@/lib/osmNodes';
 import { homeSiteName, homeSitesInScope } from '@/lib/home-sites';
 import { buildDataPack, homePackIdOf, homePacks } from './packs/home-packs';
 import { defaultScopeOf, packOfScope } from '@/lib/scope';
-import { disruptionCount, impact } from '@/lib/reachability';
+import { blockedFlags, disruptionCount, impact } from '@/lib/reachability';
+import { waysNearPoint } from '@/lib/roadGraph';
+import { hypotheses } from '@/lib/signal';
 
-export type HomeLayerKey = InfraLayer | 'patients';
-export const HOME_LAYER_KEYS: HomeLayerKey[] = ['patients', 'roads', 'el', 'water'];
+export type HomeLayerKey = InfraLayer | 'patients' | 'tele';
+export const HOME_LAYER_KEYS: HomeLayerKey[] = ['patients', 'roads', 'el', 'water', 'tele'];
 
 /** What a tap on the map does: nothing selected = select a node; otherwise toggle a road, a power outage or a water disruption. */
-export type HomeMode = null | 'roads' | 'el' | 'water';
-export const HOME_MODES: Array<Exclude<HomeMode, null>> = ['roads', 'el', 'water'];
+export type HomeMode = null | 'roads' | 'el' | 'water' | 'heat' | 'cold';
+export const HOME_MODES: Array<Exclude<HomeMode, null>> = ['roads', 'el', 'water', 'heat', 'cold'];
+
+/** The radius of the cold chain's "every road within 250 m of the site is closed" (SPEC.md § 6). */
+export const SITE_CUTOFF_RADIUS_M = 250;
 
 export interface HomeState {
   /** Defaults: patients and roads on, el and water off. */
@@ -40,6 +45,17 @@ export interface HomeState {
   disruptions: HomeDisruption[];
   /** Zone → start of the earliest active power disruption covering it; the battery deadlines are computed from it. */
   powerStart: Map<ZoneId, number>;
+  /** Zone → start of the earliest tele disturbance, heatwave and cold; start of the earliest supplier disruption (SPEC.md § 6). */
+  teleStart: Map<ZoneId, number>;
+  heatStart: Map<ZoneId, number>;
+  coldStart: Map<ZoneId, number>;
+  supplierStart: number | null;
+  /** Outages that nobody has registered, started from the Demo popover; they change the realtime signal, not the impact. */
+  hiddenPower: Map<ZoneId, number>;
+  /** Clock minute since which every road within 250 m of a site is closed, or null (the cold chain). */
+  siteCutoffSince: number | null;
+  /** Patient → extra hours given by Kylpåse and Kortare infusion before a heat-critical pump patient is marked. */
+  heatExtraHours: Map<string, number>;
   /** The work on affected patients: the status chain and what was decided (SPEC.md § 13.3). A patient with no entry is Unhandled. */
   work: Record<string, HomeWork>;
   /** Today's visits; Move visit changes a slot or cancels one (SPEC.md § 14.3). */
@@ -68,6 +84,20 @@ export interface HomeActions {
   setHomeGeoReady: (infraNodes?: InfraNode[]) => void;
   togglePowerOut: (zone: ZoneId) => void;
   toggleWaterOut: (zone: ZoneId) => void;
+  /** Heatwave and cold per zone, like the power and water map modes. */
+  toggleHeat: (zone: ZoneId) => void;
+  toggleCold: (zone: ZoneId) => void;
+  /** A tele disturbance in a zone and a supplier disruption (chosen in the panel, no map target); each returns false when it is already active. */
+  startTeleDisturbance: (zone: ZoneId, startedAt?: number, source?: 'panel' | 'hypothesis') => boolean;
+  startSupplierDisruption: () => boolean;
+  /** Registers the suspected disruption of a zone as a power outage or a tele disturbance (SPEC.md § 6, hypothesis). */
+  registerHypothesis: (zone: ZoneId, as: 'power' | 'tele') => void;
+  /** Demo: an outage in a zone that nobody has registered; it changes the signal only. */
+  startHiddenOutage: (zone: ZoneId) => void;
+  /** Kylpåse and Kortare infusion: logged, 12 h extra before a heat-critical pump patient is marked; sets Planned. */
+  heatRelief: (patientId: string, kind: 'coolingPouch' | 'shorterInfusion') => void;
+  /** Besök inom 2 h: logged; sets Planned. */
+  visitWithin2h: (patientId: string) => void;
   /** Starts a disruption record (from the map, a preset or a message) and logs it; returns its id, or null when it is already active. */
   startHomeDisruption: (input: NewDisruption) => string | null;
   /** Ends a record by hand ("end now") and logs it. */
@@ -95,7 +125,7 @@ export interface HomeActions {
   /** Clears every disruption and writes one log entry; nothing happens when there is none. */
   resetHomeDisruptions: () => void;
   /** A demo scenario (SPEC.md § 6): replaces the disruptions with the preset's and writes one log entry. */
-  applyHomePreset: (key: 'bridge' | 'power' | 'water') => void;
+  applyHomePreset: (key: HomeDisruptionPreset['key']) => void;
 }
 
 export interface NewDisruption {
@@ -108,15 +138,17 @@ export interface NewDisruption {
   source: HomeDisruptionSource;
   /** E.g. the id of the message the disruption was created from. */
   note?: string | null;
+  /** Clock minute the disruption began, when it is not now (a suspected outage is dated from the signal). */
+  startedAt?: number;
 }
 
 export const WORK_STATUSES: HomeWorkStatus[] = ['Unhandled', 'Contacted', 'Planned', 'Confirmed'];
 const RANK = (s: HomeWorkStatus) => WORK_STATUSES.indexOf(s);
-const NO_WORK: HomeWork = { status: 'Unhandled', note: null, assignedTeam: null, bringInSite: null };
+const NO_WORK: HomeWork = { status: 'Unhandled', note: null, assignedTeam: null, bringInSite: null, bringInAt: null, bringInReasons: [] };
 
 export function initialHome(pack: Pick<DataPack, 'infraNodes'> & Partial<Pick<DataPack, 'homeVisits' | 'homePackId'>>): HomeState {
   return {
-    layers: { patients: true, roads: true, el: false, water: false },
+    layers: { patients: true, roads: true, el: false, water: false, tele: false },
     mode: null,
     blockedWays: new Set(),
     blockedRoads: new Set(),
@@ -125,6 +157,13 @@ export function initialHome(pack: Pick<DataPack, 'infraNodes'> & Partial<Pick<Da
     waterOutZones: new Set(),
     disruptions: [],
     powerStart: new Map(),
+    teleStart: new Map(),
+    heatStart: new Map(),
+    coldStart: new Map(),
+    supplierStart: null,
+    hiddenPower: new Map(),
+    siteCutoffSince: null,
+    heatExtraHours: new Map(),
     work: {},
     visits: structuredClone(pack.homeVisits ?? []),
     selectedNode: null,
@@ -157,6 +196,8 @@ export const createHomeSlice: StateCreator<AppStore, [], [], HomeActions> = (set
     const r = impact(pack, home, scopeSites(), undefined, get().clock);
     return t('AUDIT.homeDetail', { n: r.summary.affected, total: pack.homePatients.length });
   };
+  /** Zones with any active registered disruption record. */
+  const registeredZones = (): Set<ZoneId> => new Set(get().home.disruptions.filter((d) => d.endedAt === null && d.targetKind === 'zone').map((d) => d.target));
   const zoneName = (zone: ZoneId) => {
     const z = get().pack.homeZones.find((x) => x.id === zone);
     return z ? lt(z.name) : zone;
@@ -172,8 +213,8 @@ export const createHomeSlice: StateCreator<AppStore, [], [], HomeActions> = (set
       return same(input.targetKind === 'way' ? wayLabel(input.target) : input.target.split('|')[0]);
     }
     const zone = pack.homeZones.find((z) => z.id === input.target);
-    const name = zone ? zone.name : same(input.target);
-    const key = input.kind === 'power' ? 'HOME.disruption.power' : 'HOME.disruption.water';
+    const name = input.kind === 'supplier' ? same(pack.homePackId === 'sus' ? 'SUS' : 'Karolinska') : zone ? zone.name : same(input.target);
+    const key = `HOME.disruption.${input.kind}` as const;
     return { sv: t(key, { name: name.sv }, 'sv'), en: t(key, { name: name.en }, 'en') };
   };
   /** Adds a record (state only; the caller logs). Null when the same target is already disrupted. */
@@ -187,7 +228,7 @@ export const createHomeSlice: StateCreator<AppStore, [], [], HomeActions> = (set
       target: input.target,
       targetKind: input.targetKind,
       label: labelOf(input),
-      startedAt: clock,
+      startedAt: input.startedAt ?? clock,
       expectedEnd: input.expectedEnd ?? null,
       source: input.source,
       createdBy: CURRENT_USER.name,
@@ -259,6 +300,34 @@ export const createHomeSlice: StateCreator<AppStore, [], [], HomeActions> = (set
     logHome(t('AUDIT.homeStatusReset'), t('AUDIT.homeObject'), t('AUDIT.homeStatusResetDetail', { n: reset.length }), SYSTEM_ACTOR, reset.join(','));
   };
 
+  const cutoffCache = new WeakMap<object, Map<string, number[]>>();
+  /** Recomputes since when every road within 250 m of a site is closed (the cold chain); call after any change of the roads. */
+  const updateCutoff = () => {
+    const model = getRoadModel();
+    const { pack, home, clock } = get();
+    if (!model) return;
+    let cache = cutoffCache.get(model);
+    if (!cache) cutoffCache.set(model, (cache = new Map()));
+    const flags = blockedFlags(model, home, pack);
+    const sites = homePacks[pack.homePackId].sites;
+    const cut = sites.some((site) => {
+      let ways = cache!.get(site.id);
+      if (!ways) cache!.set(site.id, (ways = waysNearPoint(model.graph, site.lat, site.lng, SITE_CUTOFF_RADIUS_M)));
+      return ways.length > 0 && ways.every((w) => flags[w] === 1);
+    });
+    const since = home.siteCutoffSince;
+    if (cut && since === null) set((s) => ({ home: { ...s.home, siteCutoffSince: clock } }));
+    else if (!cut && since !== null) set((s) => ({ home: { ...s.home, siteCutoffSince: null } }));
+  };
+
+  /** Toggles a zone record of the kind (power, water, heat, cold) and logs it; shared by the map modes. */
+  const toggleZone = (kind: 'heat' | 'cold', zone: ZoneId, on: string, off: string) => {
+    if (!get().pack.homeZones.some((z) => z.id === zone)) return;
+    const started = toggleRecord({ kind, target: zone, targetKind: 'zone', source: 'map' });
+    logHome(started ? t(on as never) : t(off as never), zoneName(zone), detail());
+    reconcile();
+  };
+
   return {
     setHomeLayer: (layer, on) =>
       set((s) => ({
@@ -284,18 +353,21 @@ export const createHomeSlice: StateCreator<AppStore, [], [], HomeActions> = (set
       if (!node) return;
       const blocking = toggleRecord({ kind: 'road', target: id, targetKind: 'node', source: 'map' });
       logHome(blocking ? t('AUDIT.homeBlocked') : t('AUDIT.homeUnblocked'), lt(node.name), detail());
+      updateCutoff();
       reconcile();
     },
 
     toggleBlockedWay: (id) => {
             const blocking = toggleRecord({ kind: 'road', target: id, targetKind: 'way', source: 'map' });
       logHome(blocking ? t('AUDIT.homeBlocked') : t('AUDIT.homeUnblocked'), wayLabel(id), detail());
+      updateCutoff();
       reconcile();
     },
 
     toggleBlockedRoad: (key) => {
             const blocking = toggleRecord({ kind: 'road', target: key, targetKind: 'road', source: 'map' });
       logHome(blocking ? t('AUDIT.homeBlocked') : t('AUDIT.homeUnblocked'), key.split('|')[0], detail());
+      updateCutoff();
       reconcile();
     },
 
@@ -319,6 +391,58 @@ export const createHomeSlice: StateCreator<AppStore, [], [], HomeActions> = (set
       reconcile();
     },
 
+    toggleHeat: (zone) => toggleZone('heat', zone, 'AUDIT.homeHeatOn', 'AUDIT.homeHeatOff'),
+
+    toggleCold: (zone) => toggleZone('cold', zone, 'AUDIT.homeColdOn', 'AUDIT.homeColdOff'),
+
+    startTeleDisturbance: (zone, startedAt, source = 'panel') => {
+      if (!get().pack.homeZones.some((z) => z.id === zone)) return false;
+      const id = addRecord({ kind: 'tele', target: zone, targetKind: 'zone', source, startedAt });
+      if (!id) return false;
+      logHome(t('AUDIT.homeTeleOn'), zoneName(zone), [detail(), t(`AUDIT.homeSources.${source}`)].join(' · '), undefined, id);
+      return true;
+    },
+
+    startSupplierDisruption: () => {
+      const id = addRecord({ kind: 'supplier', target: get().pack.homePackId, targetKind: 'pack', source: 'panel' });
+      if (!id) return false;
+      logHome(t('AUDIT.homeSupplierOn'), homePacks[get().pack.homePackId].customer, detail(), undefined, id);
+      return true;
+    },
+
+    registerHypothesis: (zone, as) => {
+      const { pack, home, clock } = get();
+      const found = hypotheses(pack.homePatients, pack.homeZones, { powerStart: home.powerStart, teleStart: home.teleStart, hiddenPower: home.hiddenPower }, registeredZones(), clock).find((h) => h.zone === zone);
+      if (!found) return;
+      const z = pack.homeZones.find((x) => x.id === zone)!;
+      // The start is estimated from the cluster of last contacts: a power outage began before the network fell.
+      const startedAt = as === 'power' ? Math.max(0, found.firstSilentAt - (z.urban ? 60 : 240)) : found.firstSilentAt;
+      const id = addRecord({ kind: as, target: zone, targetKind: 'zone', source: 'hypothesis', startedAt });
+      if (!id) return;
+      logHome(as === 'power' ? t('AUDIT.homePowerOut') : t('AUDIT.homeTeleOn'), zoneName(zone), [detail(), t('AUDIT.homeSources.hypothesis')].join(' · '), undefined, id);
+      reconcile();
+    },
+
+    startHiddenOutage: (zone) => {
+      const { pack, clock, home } = get();
+      if (!pack.homeZones.some((z) => z.id === zone) || home.hiddenPower.has(zone)) return;
+      set((s) => ({ home: { ...s.home, hiddenPower: new Map(s.home.hiddenPower).set(zone, clock) } }));
+      logHome(t('AUDIT.homeHiddenOutage'), zoneName(zone), undefined, SYSTEM_ACTOR);
+    },
+
+    heatRelief: (patientId, kind) => {
+      if (!patientOf(patientId)) return;
+      set((s) => ({ home: { ...s.home, heatExtraHours: new Map(s.home.heatExtraHours).set(patientId, (s.home.heatExtraHours.get(patientId) ?? 0) + 12) } }));
+      setWork(patientId, {}, 'Planned');
+      logHome(t(kind === 'coolingPouch' ? 'AUDIT.homeCoolingPouch' : 'AUDIT.homeShorterInfusion'), nameOf(patientId), undefined, undefined, patientId);
+    },
+
+    visitWithin2h: (patientId) => {
+      if (!patientOf(patientId)) return;
+      setWork(patientId, {}, 'Planned');
+      logHome(t('AUDIT.homeVisit2h'), nameOf(patientId), undefined, undefined, patientId);
+    },
+
     startHomeDisruption: (input) => {
       const id = addRecord(input);
       if (!id) return null;
@@ -331,6 +455,7 @@ export const createHomeSlice: StateCreator<AppStore, [], [], HomeActions> = (set
       const d = endRecord((x) => x.id === id, 'manual');
       if (!d) return;
       logHome(t('AUDIT.homeEnded'), lt(d.label), detail(), undefined, id);
+      updateCutoff();
       reconcile();
     },
 
@@ -344,6 +469,7 @@ export const createHomeSlice: StateCreator<AppStore, [], [], HomeActions> = (set
           const d = endRecord((x) => x.id === id, 'expected');
           if (d) logHome(t('AUDIT.homeEndedExpected'), lt(d.label), detail(), SYSTEM_ACTOR, id);
         }
+        updateCutoff();
         reconcile();
       } finally {
         settlingHome = false;
@@ -413,7 +539,9 @@ export const createHomeSlice: StateCreator<AppStore, [], [], HomeActions> = (set
       const inScope = scopeSites();
       const candidates = homePacks[packId].sites.filter((x) => inScope.length === 0 || inScope.includes(x.id));
       const nearest = [...candidates].sort((a, b) => haversineM(patient.lat, patient.lng, a.lat, a.lng) - haversineM(patient.lat, patient.lng, b.lat, b.lng))[0] ?? homePacks[packId].sites[0];
-      setWork(patientId, { bringInSite: nearest.id }, 'Planned');
+      const { pack, home, clock } = get();
+      const row = impact(pack, home, scopeSites(), undefined, clock).rows.find((r) => r.patient.id === patientId);
+      setWork(patientId, { bringInSite: nearest.id, bringInAt: clock, bringInReasons: row ? row.reasons : [] }, 'Planned');
       logHome(t('AUDIT.homeBringIn'), nameOf(patientId), homeSiteName(packId, nearest.id), undefined, patientId);
     },
 
@@ -425,7 +553,8 @@ export const createHomeSlice: StateCreator<AppStore, [], [], HomeActions> = (set
 
     contactAllCritical: () => {
       const { pack, home, clock } = get();
-      const rows = impact(pack, home, scopeSites(), undefined, clock).rows.filter((r) => r.critical);
+      // A patient out of contact cannot be reached by phone: a physical visit is needed, so the bulk contact leaves those rows.
+      const rows = impact(pack, home, scopeSites(), undefined, clock).rows.filter((r) => r.critical && !r.noContact);
       if (rows.length === 0) return;
       const note = t('HOME.work.bulkNote');
       for (const r of rows) setWork(r.patient.id, { note }, 'Contacted');
@@ -437,6 +566,7 @@ export const createHomeSlice: StateCreator<AppStore, [], [], HomeActions> = (set
       if (disruptionCount(home) === 0) return;
       endAll('reset');
       logHome(t('AUDIT.homeReset'), t('AUDIT.homeObject'), detail());
+      updateCutoff();
       reconcile();
     },
 
@@ -448,16 +578,19 @@ export const createHomeSlice: StateCreator<AppStore, [], [], HomeActions> = (set
       for (const id of preset.blockedNodes) addRecord({ kind: 'road', target: id, targetKind: 'node', source: 'preset' });
       for (const z of preset.powerOutZones) addRecord({ kind: 'power', target: z, targetKind: 'zone', source: 'preset' });
       for (const z of preset.waterOutZones) addRecord({ kind: 'water', target: z, targetKind: 'zone', source: 'preset' });
+      for (const z of preset.heatZones ?? []) addRecord({ kind: 'heat', target: z, targetKind: 'zone', source: 'preset' });
+      for (const z of preset.coldZones ?? []) addRecord({ kind: 'cold', target: z, targetKind: 'zone', source: 'preset' });
       set((s) => ({
         home: {
           ...s.home,
           mode: null,
           selectedNode: null,
           // The layer the preset acts on is switched on so that the cause is visible.
-          layers: { ...s.home.layers, roads: s.home.layers.roads || preset.blockedNodes.length > 0, el: s.home.layers.el || preset.powerOutZones.length > 0, water: s.home.layers.water || preset.waterOutZones.length > 0 },
+          layers: { ...s.home.layers, roads: s.home.layers.roads || preset.blockedNodes.length > 0, el: s.home.layers.el || preset.powerOutZones.length > 0, water: s.home.layers.water || preset.waterOutZones.length > 0, tele: s.home.layers.tele || preset.powerOutZones.length > 0 },
         },
       }));
       logHome(t('AUDIT.homePreset'), lt(preset.name), detail());
+      updateCutoff();
       reconcile();
     },
   };

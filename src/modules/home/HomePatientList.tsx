@@ -4,13 +4,15 @@ import { useStore } from '@/data/store';
 import { HOME_EQUIPMENT } from '@/data/vocab';
 import { t, tm, lt } from '@/lib/i18n';
 import { NO_FILTERS, filterPatients, groupByZone, hasFilters, type HomeFilters } from '@/lib/home-list';
-import { isPrioritised, prioritise, type Impact, type ImpactReason, type ImpactRow } from '@/lib/reachability';
+import { isPrioritised, prioritise, type Impact, type ImpactRow } from '@/lib/reachability';
+import { ReasonChips } from '@/components/ReasonChips';
+import { RealtimeCells, SimulatedNote } from '@/components/Realtime';
+import { ExplanationChain } from './ExplanationChain';
 import { cn } from '@/lib/utils';
 import { Chip } from '@/components/Chip';
 import { fictionalMarking } from '@/lib/home-sites';
 import { getRoadModel } from '@/lib/roadModel';
 import { formatClock } from '@/lib/time';
-import type { ChipTone } from '@/data/vocab';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
 import { PatientActions } from './PatientActions';
@@ -34,7 +36,6 @@ function ToggleChip({ pressed, onClick, children, disabled, title }: { pressed: 
   );
 }
 
-const REASON_TONE: Record<ImpactReason, ChipTone> = { unreachable: 'red', detour: 'warning', power: 'red', water: 'red' };
 
 function PatientRow({ p, row, expanded, onToggle }: { p: HomePatient; row?: ImpactRow; expanded: boolean; onToggle: () => void }) {
   const reasons = tm('HOME.impact.reasons');
@@ -63,11 +64,7 @@ function PatientRow({ p, row, expanded, onToggle }: { p: HomePatient; row?: Impa
       ) : null}
       {row ? (
         <div className="flex flex-wrap gap-1">
-          {row.reasons.map((r) => (
-            <Chip key={r} tone={REASON_TONE[r]}>
-              {reasons[r]}
-            </Chip>
-          ))}
+          <ReasonChips row={row} />
         </div>
       ) : null}
       <div className="flex items-center gap-3 text-small text-text-secondary">
@@ -79,6 +76,7 @@ function PatientRow({ p, row, expanded, onToggle }: { p: HomePatient; row?: Impa
       </div>
       <div className="text-small text-text-muted">
         {p.equipment.length ? p.equipment.map((e) => equipment[e]).join(', ') : t('HOME.list.noEquipment')}
+        {p.monitoringLevel !== 'none' ? <span className="ml-3 text-text-secondary">{p.monitoringReason ? t('HOME.monitoring.line', { level: tm('HOME.monitoring.level')[p.monitoringLevel], reason: tm('HOME.monitoring.reason')[p.monitoringReason] }) : tm('HOME.monitoring.level')[p.monitoringLevel]}</span> : null}
         {p.batteryHours !== null ? <span className="ml-3 tabular text-text-secondary">{t('HOME.list.battery', { n: p.batteryHours })}</span> : null}
         {row?.power && row.batteryEmptyAt != null ? (
           row.batteryEmpty ? (
@@ -88,10 +86,12 @@ function PatientRow({ p, row, expanded, onToggle }: { p: HomePatient; row?: Impa
           )
         ) : null}
       </div>
+      <RealtimeCells p={p} />
       </div>
       {expanded && row?.affected ? (
         <div className="border-t border-border bg-bg-muted px-4 pb-3">
-          <PatientActions patientId={p.id} reachableBy={row.reachableBy} />
+          <ExplanationChain row={row} />
+          <PatientActions patientId={p.id} reachableBy={row.reachableBy} row={row} />
         </div>
       ) : null}
     </li>
@@ -143,6 +143,7 @@ export function HomePatientList({ patients, impact, active }: HomePatientListPro
       <div className="sticky top-0 z-10 space-y-2 border-b border-border bg-surface px-4 py-3">
         <h2 className="text-heading">{t('HOME.list.title', { n: filtered.length })}</h2>
         <p className="text-small text-text-muted">{fictionalMarking(packId)}</p>
+        <SimulatedNote />
         {active ? (
           <div className="flex flex-wrap gap-2">
             <Button size="sm" variant="secondary" disabled={!impact.rows.some((r) => r.critical)} onClick={contactAllCritical}>

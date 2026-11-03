@@ -103,15 +103,14 @@ describe('impact on the real graph (SPEC.md § 12.4)', () => {
     expect(r.rows.every((x) => x.power && !x.unreachable && !x.delayed && x.reasons.join() === 'power')).toBe(true);
     expect(r.summary.affected).toBe(20);
     expect(r.summary.powerOut).toBe(20);
-    const batteries = pack.homePatients.filter((p) => p.zone === 'huddinge' && p.elCritical).map((p) => p.batteryHours!);
+    const batteries = pack.homePatients.filter((p) => p.zone === 'huddinge' && p.elCritical).map((p) => p.batteryHours! + (p.backupHours ?? 0));
     expect(r.summary.shortestBattery).toBe(batteries.length ? Math.min(...batteries) : null);
   });
 
-  it('a water disruption counts the zone and its dialysis patients', () => {
+  it('a water disruption is a boil-water advisory: it marks the zone and makes nobody critical', () => {
     const r = impact(pack, dis({ waterOutZones: set('solna') }), BOTH, model);
-    const inZone = pack.homePatients.filter((p) => p.zone === 'solna');
     expect(r.summary.waterOut).toBe(25);
-    expect(r.summary.dialysis).toBe(inZone.filter((p) => p.waterCritical).length);
+    expect(r.rows.every((x) => x.water && !x.critical)).toBe(true);
   });
 
   it('a closed bridge node blocks the ways it names, and a closed way id blocks that way only', () => {
@@ -139,33 +138,37 @@ describe('impact on the real graph (SPEC.md § 12.4)', () => {
   });
 });
 
-describe('prioritise (SPEC.md § 11.5)', () => {
+describe('prioritise (SPEC.md § 6)', () => {
   const patient = (id: string, o: Partial<HomePatient>): HomePatient => ({
-    id, familyName: id, givenName: 'X', age: 70, zone: 'solna', street: 'Gatan', houseNo: 1, lat: 0, lng: 0, team: 'ASIH Nord', equipment: [], batteryHours: null,
-    visitToday: false, elCritical: false, waterCritical: false, ...o,
+    id, familyName: id, givenName: 'X', personalNumber: '19500101-0000', age: 70, zone: 'solna', street: 'Gatan', houseNo: 1, lat: 0, lng: 0, team: 'ASIH Nord', equipment: [],
+    batteryHours: null, backupHours: null, monitoringLevel: 'none', monitoringReason: null, antibiotic: null, heatSensitive: false, visitToday: false, elCritical: false,
+    enrolledOn: '2026-09-01', plannedDischargeOn: '2026-09-20', appLoggedIn: true, ...o,
   });
   const row = (id: string, o: Partial<HomePatient>, f: Partial<ImpactRow>): ImpactRow => ({
-    patient: patient(id, o), reasons: [], unreachable: false, delayed: false, power: false, water: false, affected: true, critical: false, ...f,
+    patient: patient(id, o), reasons: [], unreachable: false, delayed: false, power: false, water: false, noContact: false, noContactAt: null, heat: false, cold: false, noPump: false,
+    affected: true, grounds: [], critical: false, powerCritical: false, monitoringCritical: false, ...f,
   });
 
-  it('orders unreachable with a visit, power-out el-critical by battery, water-out dialysis, unreachable, other, detour', () => {
+  it('orders unreachable with a visit, monitoring-critical out of contact, power-critical, monitoring-critical soon, other critical, other affected, detour', () => {
     const rows = [
       row('detour', {}, { delayed: true, affected: false }),
-      row('unreach', {}, { unreachable: true }),
-      row('dialysis', { waterCritical: true }, { water: true }),
-      row('power-9h', { elCritical: true, batteryHours: 9 }, { power: true }),
-      row('power-3h', { elCritical: true, batteryHours: 3 }, { power: true }),
+      row('plain', {}, { power: true }),
+      row('heat', {}, { heat: true, critical: true, grounds: ['heat'] }),
+      row('soon', { monitoringLevel: 'continuous', monitoringReason: 'sepsis' }, { monitoringCritical: true, critical: true, grounds: ['monitoring'], noContactAt: 900 }),
+      row('power-9h', { elCritical: true, batteryHours: 9 }, { power: true, powerCritical: true, critical: true, grounds: ['power'], batteryEmptyAt: 900 }),
+      row('power-3h', { elCritical: true, batteryHours: 3 }, { power: true, powerCritical: true, critical: true, grounds: ['power'], batteryEmptyAt: 700 }),
+      row('dark-rhythm', { monitoringLevel: 'continuous', monitoringReason: 'arrhythmia' }, { noContact: true, monitoringCritical: true, critical: true, grounds: ['monitoring'], noContactAt: 600 }),
+      row('dark-sepsis', { monitoringLevel: 'continuous', monitoringReason: 'sepsis' }, { noContact: true, monitoringCritical: true, critical: true, grounds: ['monitoring'], noContactAt: 650 }),
       row('unreach-visit', { visitToday: true }, { unreachable: true }),
-      row('power-plain', {}, { power: true }),
     ];
-    expect(prioritise(rows).map((r) => r.patient.id)).toEqual(['unreach-visit', 'power-3h', 'power-9h', 'dialysis', 'unreach', 'power-plain', 'detour']);
-    expect(prioritise(rows).map(priorityTier)).toEqual([1, 2, 2, 3, 4, 5, 6]);
+    expect(prioritise(rows).map((r) => r.patient.id)).toEqual(['unreach-visit', 'dark-sepsis', 'dark-rhythm', 'power-3h', 'power-9h', 'soon', 'heat', 'plain', 'detour']);
+    expect(prioritise(rows).map(priorityTier)).toEqual([1, 2, 2, 3, 3, 4, 5, 6, 7]);
   });
 
-  it('breaks ties by battery ascending, a missing battery last, and does not change its input', () => {
+  it('breaks ties by battery plus reserve ascending, a missing battery last, and does not change its input', () => {
     const rows = [
       row('b', { visitToday: true, batteryHours: 8 }, { unreachable: true }),
-      row('a', { visitToday: true, batteryHours: 4 }, { unreachable: true }),
+      row('a', { visitToday: true, batteryHours: 2, backupHours: 2 }, { unreachable: true }),
       row('c', { visitToday: true, batteryHours: null }, { unreachable: true }),
     ];
     expect(prioritise(rows).map((r) => r.patient.id)).toEqual(['a', 'b', 'c']);

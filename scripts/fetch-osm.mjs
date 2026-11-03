@@ -1,9 +1,9 @@
 // Fetches OpenStreetMap geometry for Hospital at Home and writes the GeoJSON files of SPEC.md § 12.2 for one home pack
 // (SPEC.md § 14.5).
 //
-//   node scripts/fetch-osm.mjs [pack]            pack karolinska (default) or lund: fetch all four queries from Overpass and
+//   node scripts/fetch-osm.mjs [pack]            pack karolinska (default) or sus: fetch all four queries from Overpass and
 //                                                write src/data/packs/geo/<pack>/*.json and its README.md
-//   node scripts/fetch-osm.mjs lund --bbox 55.58,12.84,55.93,13.74
+//   node scripts/fetch-osm.mjs sus --bbox 55.35,12.80,55.95,13.75
 //                                                use another bounding box (south,west,north,east) for roads, power and water
 //   node scripts/fetch-osm.mjs [pack] --only roads   fetch one query (roads, streets, power or water)
 //   node scripts/fetch-osm.mjs [pack] --from DIR     convert saved Overpass answers (DIR/roads.json …) instead of fetching
@@ -19,7 +19,7 @@
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { OUTPUTS, PACKS, buildQuery, geoReadme } from './osm-convert.mjs';
+import { OUTPUTS, PACKS, PACK_BUDGETS, buildQuery, geoReadme } from './osm-convert.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const queryDir = path.join(here, 'overpass');
@@ -152,9 +152,10 @@ for (const o of OUTPUTS) {
   }
   writeFileSync(file, JSON.stringify(geo)); // written as soon as the file is complete
   sizes[o.file] = statSync(file).size;
-  const ok = sizes[o.file] <= o.budget;
+  const budget = PACK_BUDGETS[pack]?.[o.file] ?? o.budget;
+  const ok = sizes[o.file] <= budget;
   overBudget ||= !ok;
-  console.log(`${o.file}: ${geo.features.length} features, ${(sizes[o.file] / 1024).toFixed(1)} KB${Number.isFinite(o.budget) ? ` of ${(o.budget / 1024).toFixed(0)} KB` : ''}${ok ? '' : '  OVER BUDGET'}`);
+  console.log(`${o.file}: ${geo.features.length} features, ${(sizes[o.file] / 1024).toFixed(1)} KB${Number.isFinite(budget) ? ` of ${(budget / 1024).toFixed(0)} KB` : ''}${ok ? '' : '  OVER BUDGET'}`);
 }
 if (!only) writeFileSync(path.join(outDir, 'README.md'), geoReadme(date, sizes, pack));
 if (overBudget) {

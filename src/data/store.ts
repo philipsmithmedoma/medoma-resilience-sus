@@ -3,6 +3,7 @@
 import { create } from 'zustand';
 import type { AuditEntry, ClosedIncident, DataPack, Incident, Playbook, Staff } from './types';
 import { buildDataPack, DEFAULT_HOME_PACK } from './packs/home-packs';
+import type { HomePackId } from './types';
 import { CURRENT_USER } from './vocab';
 import { t, tm } from '@/lib/i18n';
 import { INITIAL_CLOCK, formatClock } from '@/lib/time';
@@ -48,8 +49,8 @@ function clone<T>(value: T): T {
   return structuredClone(value);
 }
 
-export function initialData(): DataState {
-  const pack = buildDataPack(DEFAULT_HOME_PACK);
+export function initialData(packId: HomePackId = DEFAULT_HOME_PACK): DataState {
+  const pack = buildDataPack(packId);
   return {
     pack,
     scope: defaultScopeOf(pack.homePackId),

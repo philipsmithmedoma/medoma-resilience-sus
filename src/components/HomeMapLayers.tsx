@@ -31,6 +31,10 @@ export interface HomeOverlay {
   blockedWayIds?: ReadonlySet<number>;
   powerOutZones?: ReadonlySet<string>;
   waterOutZones?: ReadonlySet<string>;
+  heatZones?: ReadonlySet<string>;
+  coldZones?: ReadonlySet<string>;
+  /** The tele layer: per zone whether the mobile network is up, falls within hours or is down; absent zones have no network event. */
+  teleStatus?: ReadonlyMap<string, 'soon' | 'down'>;
   /** How a patient dot is drawn when it is affected; patients not in the map keep the neutral dot. */
   patientMarks?: ReadonlyMap<string, PatientMark>;
   onToggleNode?: (id: string) => void;
@@ -175,7 +179,7 @@ function ClearOnMapClick({ onClear }: { onClear: () => void }) {
 export function HomeMapLayers({ overlay, sites }: HomeMapLayersProps) {
   const {
     layers, zones, infraNodes, infraLinks, patients, powerLines = [], selectedId = null, onSelectNode,
-    mode = null, blockedNodes = EMPTY, roads, blockedWayIds = NO_WAYS, powerOutZones = EMPTY, waterOutZones = EMPTY, patientMarks,
+    mode = null, blockedNodes = EMPTY, roads, blockedWayIds = NO_WAYS, powerOutZones = EMPTY, waterOutZones = EMPTY, heatZones = EMPTY, coldZones = EMPTY, teleStatus, patientMarks,
     onToggleNode, onTapWay, onToggleZone, teams = [], teamTokens, sequence,
   } = overlay;
   const positions = useMemo(() => vertexPositions(sites, zones, infraNodes), [sites, zones, infraNodes]);
@@ -190,9 +194,11 @@ export function HomeMapLayers({ overlay, sites }: HomeMapLayersProps) {
   const AMBER = cssColor('--color-orange');
   const linkDim = (l: InfraLink) => linked !== null && l.a !== selectedId && l.b !== selectedId;
   const vertexDim = (id: string) => linked !== null && !linked.has(id);
-  const zoneMode = mode === 'el' || mode === 'water';
-  // The outage the current mode edits; outside the outage modes any outage shows.
-  const zoneOut = (id: string) => (mode === 'el' ? powerOutZones.has(id) : mode === 'water' ? waterOutZones.has(id) : powerOutZones.has(id) || waterOutZones.has(id));
+  const zoneMode = mode === 'el' || mode === 'water' || mode === 'heat' || mode === 'cold';
+  // The disruption the current mode edits; outside the zone modes any of them shows.
+  const zoneOut = (id: string) =>
+    mode === 'el' ? powerOutZones.has(id) : mode === 'water' ? waterOutZones.has(id) : mode === 'heat' ? heatZones.has(id) : mode === 'cold' ? coldZones.has(id)
+      : powerOutZones.has(id) || waterOutZones.has(id) || heatZones.has(id) || coldZones.has(id);
 
   return (
     <>
@@ -213,15 +219,19 @@ export function HomeMapLayers({ overlay, sites }: HomeMapLayersProps) {
       {roads && layers.roads ? <RoadsLayer roads={roads} blocked={blockedWayIds} interactive={mode === 'roads' && Boolean(onTapWay)} onTap={onTapWay} /> : null}
 
       {zones
-        .filter((z) => zoneMode || zoneOut(z.id))
+        .filter((z) => zoneMode || zoneOut(z.id) || layers.tele)
         .map((z) => {
           const out = zoneOut(z.id);
+          const tele = layers.tele ? teleStatus?.get(z.id) : undefined;
+          // The tele layer: a zone without mobile network is filled in the danger colour, one that loses it within hours is dashed amber.
+          const colour = tele === 'down' ? DANGER : tele === 'soon' ? AMBER : out ? DANGER : NEUTRAL;
+          const strong = out || tele !== undefined;
           return (
             <Circle
               key={`area-${z.id}`}
               center={[z.lat, z.lng]}
               radius={z.radiusKm * 1000}
-              pathOptions={{ color: out ? DANGER : NEUTRAL, weight: out ? 2 : 1, fillColor: out ? DANGER : NEUTRAL, fillOpacity: out ? 0.22 : 0.06, dashArray: out ? undefined : '4 4' }}
+              pathOptions={{ color: colour, weight: strong ? 2 : 1, fillColor: colour, fillOpacity: tele === 'down' ? 0.3 : out ? 0.22 : 0.06, dashArray: tele === 'soon' || !strong ? '4 4' : undefined }}
               interactive={zoneMode}
               eventHandlers={zoneMode && onToggleZone ? { click: () => onToggleZone(z.id) } : undefined}
             />

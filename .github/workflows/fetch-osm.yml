@@ -10,7 +10,7 @@ on:
         type: choice
         options:
           - karolinska
-          - lund
+          - sus
           - both
         default: both
 
@@ -37,7 +37,7 @@ jobs:
       - name: Fetch OpenStreetMap geometry
         # Exit code 2 from the script means that every file it could fetch is written and some are missing: carry on.
         run: |
-          if [ "$PACK" = "both" ]; then packs="karolinska lund"; else packs="$PACK"; fi
+          if [ "$PACK" = "both" ]; then packs="sus karolinska"; else packs="$PACK"; fi
           : > "$RUNNER_TEMP/missing.txt"
           for p in $packs; do
             set +e

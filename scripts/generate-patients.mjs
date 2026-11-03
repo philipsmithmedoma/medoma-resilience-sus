@@ -1,11 +1,13 @@
-// Generates src/data/packs/patients.ts once, deterministically (SPEC.md § 6.7): 40 patients per site,
-// wards from DATA.md § 5.1, the first prototype's distribution constraints, ages 24–91, 12 home care
-// eligible per site. Run: node scripts/generate-patients.mjs
+// Generates the synthetic home patients of each pack once, deterministically (SPEC.md § 3, DATA.md § 5.2): per pack a seeded
+// generator writes src/data/packs/home-patients*.ts and the non-enrolled rows of the patient list (home-registry.ts).
+// Karolinska: seed 20261102, 150 patients. SUS: seed 20261103, 200 patients. Nothing here is a real person.
+// Run: node scripts/generate-patients.mjs
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
-const SEED = 20260904;
+const here = path.dirname(fileURLToPath(import.meta.url));
+const packsDir = path.resolve(here, '../src/data/packs');
 
 function mulberry32(seed) {
   let a = seed >>> 0;
@@ -17,19 +19,8 @@ function mulberry32(seed) {
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 }
-const rand = mulberry32(SEED);
-const randInt = (min, max) => min + Math.floor(rand() * (max - min + 1));
-function shuffle(arr) {
-  const a = [...arr];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(rand() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
-}
-const repeat = (value, n) => Array.from({ length: n }, () => value);
 
-// 80 family names and 40 given names; no name coincides with a person in DATA.md § 7.
+// 80 family names and 40 given names; no name coincides with a person in the incident data or with a team's staff.
 const FAMILY = [
   'Andersson', 'Bergström', 'Carlsson', 'Dahl', 'Ekström', 'Forsberg', 'Gustafsson', 'Hedlund', 'Isaksson', 'Jonsson',
   'Karlsson', 'Lindqvist', 'Magnusson', 'Nyström', 'Olofsson', 'Persson', 'Qvist', 'Rosén', 'Sandberg', 'Törnqvist',
@@ -42,298 +33,249 @@ const FAMILY = [
 ];
 const GIVEN = ['Anna', 'Björn', 'Cecilia', 'David', 'Elin', 'Fredrik', 'Gunilla', 'Hans', 'Ingrid', 'Johan', 'Karin', 'Lars', 'Maria', 'Nils', 'Olivia', 'Per', 'Rebecka', 'Stefan', 'Tove', 'Ulf', 'Vera', 'William', 'Ylva', 'Åsa', 'Örjan', 'Birgitta', 'Christer', 'Daniel', 'Eva', 'Filip', 'Gustav', 'Helena', 'Isak', 'Jenny', 'Klara', 'Leif', 'Monika', 'Noah', 'Oskar', 'Pia'];
 
-// Wards per site (DATA.md § 5.1), 40 patients per site.
-const WARDS = {
-  solna: [
-    ['HKN Kardiologi', 6], ['HKN Neurologi', 5], ['Cancer Onkologi', 5], ['Cancer Hematologi', 4],
-    ['ARM Ortopedi', 5], ['ARM Kirurgi', 5], ['I&Å Internmedicin', 6], ['KVH Gynekologi', 4],
-  ],
-  huddinge: [
-    ['I&Å Internmedicin', 7], ['ARM Kirurgi', 6], ['ARM Ortopedi', 6], ['ARM Infektion', 5],
-    ['Cancer Onkologi', 6], ['HKN Kardiologi', 6], ['KVH Gynekologi', 4],
-  ],
-};
+// Names that belong to the incident data and to the teams' staff (src/data/packs/home-teams.ts, sus.ts): patients never get them.
+const RESERVED = new Set([
+  'Eva Lind', 'Johan Ek', 'Maria Holm', 'Omar Haddad', 'Peter Nord', 'Sara Lund', 'Karin Sjö', 'Erik Falk', 'Lena Åkesson', 'Helena Berg', 'Mats Öberg', 'Jonas Vik', 'Anna Ek',
+]);
 
-const careLevel = { Stable: 'Ward', Monitor: 'Monitored', Critical: 'Intensive' };
-const TODAY = new Date(Date.UTC(2026, 8, 4));
-function pin(age) {
-  const daysBack = randInt(0, 364);
-  const birth = new Date(Date.UTC(TODAY.getUTCFullYear() - age, TODAY.getUTCMonth(), TODAY.getUTCDate()));
-  birth.setUTCDate(birth.getUTCDate() - daysBack);
-  const y = birth.getUTCFullYear();
+const DEMO_DATE = new Date(Date.UTC(2026, 8, 4)); // the demo day, fredag 4 september 2026
+const KM_PER_DEG_LAT = 111.32;
+const kmBetween = (lat1, lng1, lat2, lng2) => Math.hypot((lat2 - lat1) * KM_PER_DEG_LAT, (lng2 - lng1) * KM_PER_DEG_LAT * Math.cos((lat1 * Math.PI) / 180));
+
+// Main equipment weights (DATA.md § 5.2): none 50 %, self-monitoring kit 25 %, IV stand 8 %, stationary oxygen 8 %, pump 7 %, portable oxygen 2 %.
+const MAIN_EQUIPMENT = [
+  [50, null], [25, 'Self-monitoring kit'], [8, 'IV stand'], [8, 'Oxygen stationary'], [7, 'Pump'], [2, 'Oxygen portable'],
+];
+// Battery hours of the powered equipment, or of the phone or hub of a kit; the stationary concentrator has none (it stops at once).
+const BATTERY_HOURS = { 'Self-monitoring kit': [12, 24], 'Oxygen stationary': [0, 0], 'Oxygen portable': [2, 5] };
+const BACKUP_HOURS = [4, 10]; // spare tubes of oxygen patients, illustrative
+// Antibiotics in elastomeric pumps (DATA.md § 5.3): piperacillin/tazobaktam 25, cefazolin 20, flukloxacillin 20, bensylpenicillin 10, meropenem 10, cefepim 10, ceftazidim 5 %.
+const ANTIBIOTICS = [
+  [25, 'piperacillin/tazobaktam'], [20, 'cefazolin'], [20, 'flukloxacillin'], [10, 'bensylpenicillin'], [10, 'meropenem'], [10, 'cefepim'], [5, 'ceftazidim'],
+];
+const HEAT_SENSITIVE = new Set(['meropenem', 'cefepim', 'ceftazidim']);
+const REASONS = [[35, 'arrhythmia'], [40, 'sepsis'], [20, 'respiratory'], [5, 'other']];
+
+function weighted(rand, table) {
+  let x = rand() * 100;
+  for (const [w, v] of table) {
+    if (x < w) return v;
+    x -= w;
+  }
+  return table[table.length - 1][1];
+}
+
+// Luhn check over the nine digits YYMMDDXXX; the tenth (the last of the four free digits) is chosen so that the check FAILS.
+function luhnValid(digits10) {
+  let sum = 0;
+  for (let i = 0; i < 10; i++) {
+    let d = Number(digits10[i]);
+    if (i % 2 === 0) {
+      d *= 2;
+      if (d > 9) d -= 9;
+    }
+    sum += d;
+  }
+  return sum % 10 === 0;
+}
+function personalNumber(rand, age) {
+  const birth = new Date(Date.UTC(DEMO_DATE.getUTCFullYear() - age, DEMO_DATE.getUTCMonth(), DEMO_DATE.getUTCDate()));
+  birth.setUTCDate(birth.getUTCDate() - Math.floor(rand() * 365));
+  const y = String(birth.getUTCFullYear());
   const m = String(birth.getUTCMonth() + 1).padStart(2, '0');
   const d = String(birth.getUTCDate()).padStart(2, '0');
-  const suffix = String(randInt(0, 9999)).padStart(4, '0');
-  return `${y}${m}${d}-${suffix}`;
+  let tail = String(Math.floor(rand() * 10000)).padStart(4, '0');
+  if (luhnValid(`${y.slice(2)}${m}${d}${tail}`)) tail = tail.slice(0, 3) + String((Number(tail[3]) + 1) % 10);
+  return `${y}${m}${d}-${tail}`;
 }
+const isoDay = (offsetDays) => {
+  const d = new Date(DEMO_DATE);
+  d.setUTCDate(d.getUTCDate() + offsetDays);
+  return d.toISOString().slice(0, 10);
+};
 
-function generateSite(site, offset) {
-  const wards = WARDS[site].flatMap(([name, n]) => repeat(name, n));
-  // Stability 22 / 12 / 6, shuffled across the wards.
-  const stability = shuffle([...repeat('Stable', 22), ...repeat('Monitor', 12), ...repeat('Critical', 6)]);
-  // Transport per stability group (totals: 14 Walking, 10 Wheelchair, 12 Stretcher, 2 Ambulance, 2 ICT).
-  const transportPools = {
-    Stable: shuffle([...repeat('Walking', 14), ...repeat('Wheelchair', 6), ...repeat('Stretcher', 2)]),
-    Monitor: shuffle([...repeat('Wheelchair', 4), ...repeat('Stretcher', 8)]),
-    Critical: shuffle([...repeat('Stretcher', 2), ...repeat('Ambulance', 2), ...repeat('Intensive care transport', 2)]),
-  };
-  // Equipment: 18 none, 10 Oxygen, 8 IV infusion, 6 Monitoring (24 items over 22 patients).
-  const equipmentPools = {
-    Stable: shuffle([...repeat(['Oxygen'], 4), ...repeat(['IV infusion'], 2), ...repeat([], 16)]),
-    Monitor: shuffle([...repeat(['Oxygen'], 4), ...repeat(['IV infusion'], 6), ...repeat([], 2)]),
-    Critical: shuffle([...repeat(['Monitoring', 'Oxygen'], 2), ...repeat(['Monitoring'], 4)]),
-  };
-  const patients = [];
-  for (let i = 0; i < 40; i++) {
-    const st = stability[i];
-    const age = randInt(24, 91);
-    patients.push({
-      id: `${site === 'solna' ? 'ps' : 'ph'}-${i + 1}`,
-      familyName: FAMILY[offset + i],
-      givenName: GIVEN[(i + (site === 'solna' ? 17 : 29)) % 40],
-      pin: pin(age),
-      age,
-      ward: wards[i],
-      nodeId: site,
-      stability: st,
-      careLevel: careLevel[st],
-      transport: transportPools[st].pop(),
-      equipment: equipmentPools[st].pop(),
-      homeCareEligible: false,
-    });
-  }
-  const candidates = shuffle(patients.filter((p) => p.stability === 'Stable' && (p.transport === 'Walking' || p.transport === 'Wheelchair')));
-  candidates.slice(0, 12).forEach((p) => (p.homeCareEligible = true));
-  return patients;
-}
-
-const all = { solna: generateSite('solna', 0), huddinge: generateSite('huddinge', 40) };
+const PACKS = {
+  karolinska: {
+    seed: 20261102,
+    prefix: 'hp',
+    constName: 'HOME_PATIENTS',
+    file: 'home-patients.ts',
+    // zone id, centre, radius (km), patients, team (DATA.md § 4)
+    zones: [
+      ['solna', 59.3597, 18.0005, 2.5, 25, 'ASIH Nord'],
+      ['innerstaden', 59.3312, 18.0407, 2.0, 20, 'ASIH City'],
+      ['bromma', 59.3383, 17.9401, 2.5, 15, 'ASIH Nord'],
+      ['sodermalm', 59.3125, 18.0616, 1.8, 15, 'ASIH City'],
+      ['soderort', 59.2986, 18.0459, 2.5, 20, 'ASIH Syd'],
+      ['huddinge', 59.2365, 17.9818, 2.5, 20, 'ASIH Syd'],
+      ['botkyrka', 59.1988, 17.8332, 2.5, 10, 'ASIH Sydväst'],
+      ['nacka', 59.31, 18.1648, 2.5, 10, 'ASIH City'],
+      ['lidingo', 59.3661, 18.1352, 2.0, 5, 'ASIH Nord'],
+      ['taby', 59.4451, 18.0717, 2.5, 10, 'ASIH Nord'],
+    ],
+  },
+  sus: {
+    seed: 20261103,
+    prefix: 'sp',
+    constName: 'SUS_PATIENTS',
+    file: 'home-patients-sus.ts',
+    // The Lund half uses the Lund zones with the counts of DATA.md § 3 (40, 10, 10, 10, 10, 15, 5); the Malmö half the nine zones of § 3.
+    zones: [
+      ['lund', 55.706, 13.192, 2.5, 40, 'Sjukhus hemma Lund'],
+      ['kavlinge', 55.792, 13.112, 1.5, 10, 'Sjukhus hemma Lund'],
+      ['lomma', 55.695, 13.055, 2.0, 10, 'Sjukhus hemma Lund'],
+      ['staffanstorp', 55.642, 13.212, 1.5, 10, 'Sjukhus hemma Lund'],
+      ['dalby', 55.666, 13.352, 1.5, 10, 'Sjukhus hemma Lund'],
+      ['eslov', 55.838, 13.305, 2.0, 15, 'Sjukhus hemma Lund'],
+      ['horby', 55.851, 13.66, 1.5, 5, 'Sjukhus hemma Lund'],
+      ['malmo', 55.6061, 13.0002, 2.5, 25, 'Sjukhus hemma Malmö'],
+      ['limhamn', 55.5816, 12.9339, 2.0, 10, 'Sjukhus hemma Malmö'],
+      ['hyllie', 55.5644, 12.9735, 2.0, 10, 'Sjukhus hemma Malmö'],
+      ['rosengard', 55.586, 13.0431, 2.0, 15, 'Sjukhus hemma Malmö'],
+      ['arlov', 55.6398, 13.0848, 2.0, 10, 'Sjukhus hemma Malmö'],
+      ['oxie', 55.54, 13.0952, 1.5, 5, 'Sjukhus hemma Malmö'],
+      ['vellinge', 55.4721, 13.0205, 2.0, 10, 'Sjukhus hemma Malmö'],
+      ['svedala', 55.5083, 13.2359, 1.5, 5, 'Sjukhus hemma Malmö'],
+      ['trelleborg', 55.3744, 13.1584, 2.0, 10, 'Sjukhus hemma Malmö'],
+    ],
+  },
+};
 
 const line = (p) => `  ${JSON.stringify(p).replace(/"([a-zA-Z]+)":/g, '$1: ').replace(/"/g, "'").replace(/,/g, ', ').replace(/\{/g, '{ ').replace(/\}/g, ' }')},`;
-const out = `// Generated by scripts/generate-patients.mjs (seed ${SEED}). Do not edit by hand.
-import type { Patient, SiteId } from './types';
+const used = new Set(RESERVED);
+const registry = {};
 
-export const PATIENTS_BY_SITE: Record<SiteId, Patient[]> = {
-  solna: [
-${all.solna.map(line).join('\n')}
-  ],
-  huddinge: [
-${all.huddinge.map(line).join('\n')}
-  ],
-};
-`;
+for (const [packId, cfg] of Object.entries(PACKS)) {
+  // Own random streams: attributes, names and dates never depend on which street file is used.
+  const rand = mulberry32(cfg.seed);
+  const randPos = mulberry32(cfg.seed + 1);
+  const randInt = (min, max) => min + Math.floor(rand() * (max - min + 1));
+  const geoDir = path.join(packsDir, 'geo', packId);
+  const streetsFile = existsSync(path.join(geoDir, 'streets.json')) ? 'streets.json' : 'fixture-streets.json';
+  const streetFeatures = JSON.parse(readFileSync(path.join(geoDir, streetsFile), 'utf8')).features.filter((f) => f.properties.name);
+  console.log(`${packId}: placing patients on ${streetFeatures.length} streets from ${streetsFile}`);
 
-const target = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../src/data/packs/patients.ts');
-writeFileSync(target, out);
-console.log(`Wrote ${all.solna.length + all.huddinge.length} patients to ${target}`);
+  const name = () => {
+    for (;;) {
+      const familyName = FAMILY[Math.floor(rand() * FAMILY.length)];
+      const givenName = GIVEN[Math.floor(rand() * GIVEN.length)];
+      const key = `${givenName} ${familyName}`;
+      if (used.has(key)) continue;
+      used.add(key);
+      return { familyName, givenName };
+    }
+  };
+  // A street vertex counts for a zone when it is within the zone's radius and the zone's centre is the nearest of the pack's centres.
+  const onStreet = (zlat, zlng, radiusKm) => {
+    const nearestIsThisZone = (lat, lng) => cfg.zones.every(([, olat, olng]) => kmBetween(lat, lng, zlat, zlng) <= kmBetween(lat, lng, olat, olng) + 1e-9);
+    const candidates = streetFeatures
+      .map((f) => ({ name: f.properties.name, vertices: f.geometry.coordinates.filter(([lng, lat]) => kmBetween(zlat, zlng, lat, lng) <= radiusKm && nearestIsThisZone(lat, lng)) }))
+      .filter((s) => s.vertices.length > 0);
+    if (candidates.length === 0) throw new Error(`No street within ${radiusKm} km of ${zlat}, ${zlng}`);
+    const street = candidates[Math.floor(randPos() * candidates.length)];
+    const [lng, lat] = street.vertices[Math.floor(randPos() * street.vertices.length)];
+    return { street: street.name, lat, lng, houseNo: 1 + Math.floor(randPos() * 60) };
+  };
 
-// ---------------------------------------------------------------------------
-// Hospital at Home (SPEC.md § 11.4): 150 synthetic home care patients, a second seeded generator that
-// writes src/data/packs/home-patients.ts. It has its own random stream, so the hospital patients above
-// are unaffected by it.
-const HOME_SEED = 20261102;
-const rand2 = mulberry32(HOME_SEED);
-const randInt2 = (min, max) => min + Math.floor(rand2() * (max - min + 1));
-
-// zone id, centre, radius (km), patients, ASIH team (SPEC.md § 11.4 table)
-const HOME_ZONES = [
-  ['solna', 59.3597, 18.0005, 2.5, 25, 'ASIH Nord'],
-  ['innerstaden', 59.3312, 18.0407, 2.0, 20, 'ASIH City'],
-  ['bromma', 59.3383, 17.9401, 2.5, 15, 'ASIH Nord'],
-  ['sodermalm', 59.3125, 18.0616, 1.8, 15, 'ASIH City'],
-  ['soderort', 59.2986, 18.0459, 2.5, 20, 'ASIH Syd'],
-  ['huddinge', 59.2365, 17.9818, 2.5, 20, 'ASIH Syd'],
-  ['botkyrka', 59.1988, 17.8332, 2.5, 10, 'ASIH Sydväst'],
-  ['nacka', 59.31, 18.1648, 2.5, 10, 'ASIH City'],
-  ['lidingo', 59.3661, 18.1352, 2.0, 5, 'ASIH Nord'],
-  ['taby', 59.4451, 18.0717, 2.5, 10, 'ASIH Nord'],
-];
-const KM_PER_DEG_LAT = 111.32;
-// Main equipment weights (none 55 %, Monitoring 25 %, Oxygen 10 %, IV infusion 7 %, Home ventilator 3 %).
-const MAIN_EQUIPMENT = [
-  [55, null], [25, 'Monitoring'], [10, 'Oxygen'], [7, 'IV infusion'], [3, 'Home ventilator'],
-];
-const BATTERY_HOURS = { Monitoring: [10, 24], Oxygen: [2, 6], 'IV infusion': [6, 12], 'Home ventilator': [4, 10] };
-
-const staffNames = new Set(['Eva Lind', 'Johan Ek', 'Maria Holm', 'Omar Haddad', 'Peter Nord', 'Sara Lund', 'Karin Sjö', 'Erik Falk', 'Lena Åkesson', 'Helena Berg', 'Mats Öberg', 'Jonas Vik', 'Anna Ek']);
-const usedNames = new Set([...all.solna, ...all.huddinge].map((p) => `${p.givenName} ${p.familyName}`));
-function homeName() {
-  for (;;) {
-    const familyName = FAMILY[Math.floor(rand2() * FAMILY.length)];
-    const givenName = GIVEN[Math.floor(rand2() * GIVEN.length)];
-    const key = `${givenName} ${familyName}`;
-    if (staffNames.has(key) || usedNames.has(key)) continue;
-    usedNames.add(key);
-    return { familyName, givenName };
+  const patients = [];
+  for (const [zone, zlat, zlng, radiusKm, count, team] of cfg.zones) {
+    for (let i = 0; i < count; i++) {
+      const main = weighted(rand, MAIN_EQUIPMENT);
+      const equipment = main ? [main] : [];
+      const age = randInt(24, 91);
+      const { familyName, givenName } = name();
+      const [bMin, bMax] = main ? (BATTERY_HOURS[main] ?? [0, 0]) : [0, 0];
+      const hasBattery = main !== null && main in BATTERY_HOURS;
+      const batteryHours = hasBattery ? randInt(bMin, bMax) : null;
+      const oxygen = main === 'Oxygen stationary' || main === 'Oxygen portable';
+      const backupHours = oxygen ? randInt(...BACKUP_HOURS) : null;
+      let monitoringLevel = 'none';
+      let monitoringReason = null;
+      if (main === 'Self-monitoring kit') {
+        monitoringLevel = rand() < 0.6 ? 'spot' : 'continuous';
+        if (monitoringLevel === 'continuous') monitoringReason = weighted(rand, REASONS);
+      }
+      const antibiotic = main === 'Pump' ? weighted(rand, ANTIBIOTICS) : null;
+      const visitToday = rand() < 0.4;
+      const pn = personalNumber(rand, age);
+      const enrolledOn = isoDay(-(1 + Math.floor(rand() * 14)));
+      const plannedDischargeOn = isoDay(3 + Math.floor(rand() * 19));
+      const appLoggedIn = rand() < 0.6;
+      const { street, lat, lng, houseNo } = onStreet(zlat, zlng, radiusKm);
+      patients.push({
+        id: `${cfg.prefix}-${patients.length + 1}`,
+        familyName,
+        givenName,
+        personalNumber: pn,
+        age,
+        zone,
+        street,
+        houseNo,
+        lat,
+        lng,
+        team,
+        equipment,
+        batteryHours,
+        backupHours,
+        monitoringLevel,
+        monitoringReason,
+        antibiotic,
+        heatSensitive: antibiotic !== null && HEAT_SENSITIVE.has(antibiotic),
+        visitToday,
+        elCritical: oxygen,
+        enrolledOn,
+        plannedDischargeOn,
+        appLoggedIn,
+      });
+    }
   }
-}
-function pickMain() {
-  let x = rand2() * 100;
-  for (const [w, name] of MAIN_EQUIPMENT) {
-    if (x < w) return name;
-    x -= w;
-  }
-  return null;
-}
-// Two uniforms summed give the distance from the zone centre (triangular, 0 to the radius); the bearing is uniform.
-function position(lat, lng, radiusKm) {
-  const d = radiusKm * ((rand2() + rand2()) / 2);
-  const bearing = rand2() * 2 * Math.PI;
-  const dLat = (d * Math.cos(bearing)) / KM_PER_DEG_LAT;
-  const dLng = (d * Math.sin(bearing)) / (KM_PER_DEG_LAT * Math.cos((lat * Math.PI) / 180));
-  return [Number((lat + dLat).toFixed(5)), Number((lng + dLng).toFixed(5))];
-}
 
-// SPEC.md § 12.5: each patient lands on a random vertex of a random street within the zone's radius. The streets come from
-// src/data/packs/geo/karolinska/streets.json (scripts/fetch-osm.mjs) or, until that has been fetched, from fixture-streets.json.
-// Placement has its own random stream, so equipment, batteries and visits are the same whichever file is used.
-const geoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../src/data/packs/geo');
-const geoDir = path.join(geoRoot, 'karolinska');
-const streetsFile = existsSync(path.join(geoDir, 'streets.json')) ? 'streets.json' : 'fixture-streets.json';
-const streetFeatures = JSON.parse(readFileSync(path.join(geoDir, streetsFile), 'utf8')).features.filter((f) => f.properties.name);
-console.log(`Placing home patients on ${streetFeatures.length} streets from ${streetsFile}`);
-const rand3 = mulberry32(HOME_SEED + 1);
-const kmBetween = (lat1, lng1, lat2, lng2) => Math.hypot((lat2 - lat1) * KM_PER_DEG_LAT, (lng2 - lng1) * KM_PER_DEG_LAT * Math.cos((lat1 * Math.PI) / 180));
-// A street vertex counts for a zone when it is within the zone's radius and the zone's centre is the nearest of the ten
-// centres: neighbouring zones overlap (Innerstaden and Södermalm are 2.4 km apart), and a patient of Södermalm must not
-// live in Norrmalm.
-function onStreet(zlat, zlng, radiusKm) {
-  const nearestIsThisZone = (lat, lng) => HOME_ZONES.every(([, olat, olng]) => kmBetween(lat, lng, zlat, zlng) <= kmBetween(lat, lng, olat, olng) + 1e-9);
-  const candidates = streetFeatures
-    .map((f) => ({ name: f.properties.name, vertices: f.geometry.coordinates.filter(([lng, lat]) => kmBetween(zlat, zlng, lat, lng) <= radiusKm && nearestIsThisZone(lat, lng)) }))
-    .filter((s) => s.vertices.length > 0);
-  if (candidates.length === 0) throw new Error(`No street within ${radiusKm} km of ${zlat}, ${zlng}`);
-  const street = candidates[Math.floor(rand3() * candidates.length)];
-  const [lng, lat] = street.vertices[Math.floor(rand3() * street.vertices.length)];
-  return { street: street.name, lat, lng, houseNo: 1 + Math.floor(rand3() * 60) };
-}
-
-const homePatients = [];
-for (const [zone, zlat, zlng, radiusKm, count, team] of HOME_ZONES) {
-  for (let i = 0; i < count; i++) {
-    const main = pickMain();
-    const dialysis = rand2() < 0.05;
-    const equipment = [...(main ? [main] : []), ...(dialysis ? ['Home dialysis'] : [])];
-    position(zlat, zlng, radiusKm); // keeps the main random stream where it was; the position now comes from a street
-    const { street, lat, lng, houseNo } = onStreet(zlat, zlng, radiusKm);
-    const { familyName, givenName } = homeName();
-    homePatients.push({
-      id: `hp-${homePatients.length + 1}`,
+  // Non-enrolled rows of the patient list: two under assessment, two paused, three discharged.
+  const extras = [];
+  const statuses = ['assessment', 'assessment', 'paused', 'paused', 'discharged', 'discharged', 'discharged'];
+  for (const status of statuses) {
+    const z = cfg.zones[Math.floor(rand() * cfg.zones.length)];
+    const age = randInt(24, 91);
+    const { familyName, givenName } = name();
+    extras.push({
+      id: `${cfg.prefix}x-${extras.length + 1}`,
       familyName,
       givenName,
-      age: randInt2(24, 91),
-      zone,
-      street,
-      houseNo,
-      lat,
-      lng,
-      team,
-      equipment,
-      batteryHours: main ? randInt2(...BATTERY_HOURS[main]) : null,
-      visitToday: rand2() < 0.4,
-      elCritical: main === 'Oxygen' || main === 'IV infusion' || main === 'Home ventilator',
-      waterCritical: dialysis,
+      personalNumber: personalNumber(rand, age),
+      age,
+      zone: z[0],
+      team: z[5],
+      status,
+      enrolledOn: status === 'assessment' ? null : isoDay(-(10 + Math.floor(rand() * 20))),
+      plannedDischargeOn: status === 'assessment' ? null : status === 'discharged' ? isoDay(-(1 + Math.floor(rand() * 5))) : isoDay(5 + Math.floor(rand() * 14)),
+      appLoggedIn: rand() < 0.6,
     });
   }
-}
+  registry[packId] = extras;
 
-const homeOut = `// Generated by scripts/generate-patients.mjs (seed ${HOME_SEED}). Do not edit by hand.
-// Synthetic Hospital at Home patients (SPEC.md § 11.4). Nothing here is a real person.
+  const out = `// Generated by scripts/generate-patients.mjs (seed ${cfg.seed}). Do not edit by hand.
+// Synthetic home patients of the ${packId} pack (SPEC.md § 3, DATA.md § 5.2). Nothing here is a real person; every personal number fails its check digit.
 import type { HomePatient } from './types';
 
-export const HOME_PATIENTS: HomePatient[] = [
-${homePatients.map(line).join('\n')}
+export const ${cfg.constName}: HomePatient[] = [
+${patients.map(line).join('\n')}
 ];
 `;
-const homeTarget = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../src/data/packs/home-patients.ts');
-writeFileSync(homeTarget, homeOut);
-console.log(`Wrote ${homePatients.length} home patients to ${homeTarget}`);
+  writeFileSync(path.join(packsDir, cfg.file), out);
+  console.log(`${packId}: wrote ${patients.length} patients to ${cfg.file}`);
+}
 
-// ---------------------------------------------------------------------------
-// SUS Lund (DATA.md § 14, SPEC.md § 14.5): 150 synthetic home care patients for the second home pack, a third seeded
-// generator that writes src/data/packs/home-patients-lund.ts. Own random streams: the Karolinska output above is unaffected.
-const LUND_SEED = 20261017;
-const rL = mulberry32(LUND_SEED);
-const rLpos = mulberry32(LUND_SEED + 1);
-const randIntL = (min, max) => min + Math.floor(rL() * (max - min + 1));
-// zone id, centre, radius (km), patients, ASIH team (DATA.md § 14)
-const LUND_ZONES = [
-  ['lund', 55.706, 13.192, 2.5, 60, 'ASIH Lund Nord'],
-  ['kavlinge', 55.792, 13.112, 1.5, 15, 'ASIH Lund Nord'],
-  ['lomma', 55.695, 13.055, 2.0, 15, 'ASIH Lund Nord'],
-  ['staffanstorp', 55.642, 13.212, 1.5, 15, 'ASIH Lund Syd'],
-  ['dalby', 55.666, 13.352, 1.5, 15, 'ASIH Lund Syd'],
-  ['eslov', 55.838, 13.305, 2.0, 20, 'ASIH Lund Nord'],
-  ['horby', 55.851, 13.66, 1.5, 10, 'ASIH Lund Nord'],
+const regOut = `// Generated by scripts/generate-patients.mjs. Do not edit by hand.
+// Synthetic non-enrolled rows of the patient list (SPEC.md § 8): two under assessment, two paused, three discharged per pack.
+import type { RegistryExtra } from './types';
+
+export const KAROLINSKA_EXTRAS: RegistryExtra[] = [
+${registry.karolinska.map(line).join('\n')}
 ];
-const lundDir = path.join(geoRoot, 'lund');
-const lundStreetsFile = existsSync(path.join(lundDir, 'streets.json')) ? 'streets.json' : 'fixture-streets.json';
-const lundStreetFeatures = JSON.parse(readFileSync(path.join(lundDir, lundStreetsFile), 'utf8')).features.filter((f) => f.properties.name);
-console.log(`Placing Lund patients on ${lundStreetFeatures.length} streets from ${lundStreetsFile}`);
-const usedL = new Set([...usedNames, ...homePatients.map((p) => `${p.givenName} ${p.familyName}`)]);
-function lundName() {
-  for (;;) {
-    const familyName = FAMILY[Math.floor(rL() * FAMILY.length)];
-    const givenName = GIVEN[Math.floor(rL() * GIVEN.length)];
-    const key = `${givenName} ${familyName}`;
-    if (staffNames.has(key) || usedL.has(key)) continue;
-    usedL.add(key);
-    return { familyName, givenName };
-  }
-}
-function pickMainL() {
-  let x = rL() * 100;
-  for (const [w, name] of MAIN_EQUIPMENT) {
-    if (x < w) return name;
-    x -= w;
-  }
-  return null;
-}
-function onStreetLund(zlat, zlng, radiusKm) {
-  const nearestIsThisZone = (lat, lng) => LUND_ZONES.every(([, olat, olng]) => kmBetween(lat, lng, zlat, zlng) <= kmBetween(lat, lng, olat, olng) + 1e-9);
-  const candidates = lundStreetFeatures
-    .map((f) => ({ name: f.properties.name, vertices: f.geometry.coordinates.filter(([lng, lat]) => kmBetween(zlat, zlng, lat, lng) <= radiusKm && nearestIsThisZone(lat, lng)) }))
-    .filter((s) => s.vertices.length > 0);
-  if (candidates.length === 0) throw new Error(`No street within ${radiusKm} km of ${zlat}, ${zlng}`);
-  const street = candidates[Math.floor(rLpos() * candidates.length)];
-  const [lng, lat] = street.vertices[Math.floor(rLpos() * street.vertices.length)];
-  return { street: street.name, lat, lng, houseNo: 1 + Math.floor(rLpos() * 60) };
-}
-const lundPatients = [];
-for (const [zone, zlat, zlng, radiusKm, count, team] of LUND_ZONES) {
-  for (let i = 0; i < count; i++) {
-    const main = pickMainL();
-    const dialysis = rL() < 0.05;
-    const equipment = [...(main ? [main] : []), ...(dialysis ? ['Home dialysis'] : [])];
-    const { street, lat, lng, houseNo } = onStreetLund(zlat, zlng, radiusKm);
-    const { familyName, givenName } = lundName();
-    lundPatients.push({
-      id: `lp-${lundPatients.length + 1}`,
-      familyName,
-      givenName,
-      age: randIntL(24, 91),
-      zone,
-      street,
-      houseNo,
-      lat,
-      lng,
-      team,
-      equipment,
-      batteryHours: main ? randIntL(...BATTERY_HOURS[main]) : null,
-      visitToday: rL() < 0.4,
-      elCritical: main === 'Oxygen' || main === 'IV infusion' || main === 'Home ventilator',
-      waterCritical: dialysis,
-    });
-  }
-}
-const lundOut = `// Generated by scripts/generate-patients.mjs (seed ${LUND_SEED}). Do not edit by hand.
-// Synthetic Hospital at Home patients for the SUS Lund pack (DATA.md § 14). Nothing here is a real person.
-import type { HomePatient } from './types';
 
-export const LUND_PATIENTS: HomePatient[] = [
-${lundPatients.map(line).join('\n')}
+export const SUS_EXTRAS: RegistryExtra[] = [
+${registry.sus.map(line).join('\n')}
 ];
 `;
-const lundTarget = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../src/data/packs/home-patients-lund.ts');
-writeFileSync(lundTarget, lundOut);
-console.log(`Wrote ${lundPatients.length} Lund patients to ${lundTarget}`);
+writeFileSync(path.join(packsDir, 'home-registry.ts'), regOut);
+console.log('wrote home-registry.ts');

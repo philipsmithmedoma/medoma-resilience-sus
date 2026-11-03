@@ -6,6 +6,7 @@ import { getRoadModel } from '@/lib/roadModel';
 import { roadKey, type RoadProps } from '@/lib/roadGraph';
 import type { GeoData } from '@/lib/geoData';
 import { powerLines } from '@/lib/osmNodes';
+import { networkDownAt } from '@/lib/signal';
 import { homeSiteNodes } from '@/lib/home-sites';
 import { NodeMap } from '@/components/NodeMap';
 import type { HomeOverlay, PatientMark } from '@/components/HomeMapLayers';
@@ -27,6 +28,20 @@ export function HomeMap({ impact, geo }: { impact: Impact; geo: GeoData | null }
   const toggleBlockedRoad = useStore((s) => s.toggleBlockedRoad);
   const togglePowerOut = useStore((s) => s.togglePowerOut);
   const toggleWaterOut = useStore((s) => s.toggleWaterOut);
+  const toggleHeat = useStore((s) => s.toggleHeat);
+  const toggleCold = useStore((s) => s.toggleCold);
+  const clock = useStore((s) => s.clock);
+  // The tele layer (SPEC.md § 5): zones whose mobile network is down, or falls within two hours.
+  const teleStatus = useMemo(() => {
+    const m = new Map<string, 'soon' | 'down'>();
+    for (const z of pack.homeZones) {
+      const down = networkDownAt(z, { powerStart: home.powerStart, teleStart: home.teleStart });
+      if (down === null) continue;
+      if (clock >= down) m.set(z.id, 'down');
+      else m.set(z.id, 'soon');
+    }
+    return m;
+  }, [pack.homeZones, home.powerStart, home.teleStart, clock]);
   // The sites of the active home pack are the hospital nodes on this map.
   const sites = useMemo(() => homeSiteNodes(pack.homePackId), [pack.homePackId]);
   // Affected patients are filled, affected and critical ones a hollow ring, detour-only ones amber (SPEC.md § 11.5).
@@ -69,10 +84,13 @@ export function HomeMap({ impact, geo }: { impact: Impact; geo: GeoData | null }
       patientMarks,
       onToggleNode: toggleBlockedNode,
       onTapWay,
-      onToggleZone: home.mode === 'el' ? togglePowerOut : toggleWaterOut,
+      heatZones: new Set(home.heatStart.keys()),
+      coldZones: new Set(home.coldStart.keys()),
+      teleStatus,
+      onToggleZone: home.mode === 'el' ? togglePowerOut : home.mode === 'heat' ? toggleHeat : home.mode === 'cold' ? toggleCold : toggleWaterOut,
       teams: pack.homeTeams,
     }),
-    [home, pack, geo, infraNodes, lines, blockedWayIds, onTapWay, patientMarks, selectHomeNode, toggleBlockedNode, togglePowerOut, toggleWaterOut],
+    [home, pack, geo, infraNodes, lines, blockedWayIds, onTapWay, patientMarks, teleStatus, selectHomeNode, toggleBlockedNode, togglePowerOut, toggleWaterOut, toggleHeat, toggleCold],
   );
   return (
     <div className="flex h-full min-w-0 flex-col">

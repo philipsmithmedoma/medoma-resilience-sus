@@ -1,3 +1,4 @@
+import { resetStoreTo } from '@/test/packs';
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { useStore } from './store';
 import { loadRoadModel } from '@/lib/roadModel';
@@ -8,12 +9,13 @@ const s = () => useStore.getState();
 const last = () => s().log[s().log.length - 1];
 
 beforeAll(async () => {
+  resetStoreTo('karolinska');
   await loadRoadModel(useStore.getState().pack);
   useStore.getState().setHomeGeoReady();
 });
 
 describe('disruptions in time (SPEC.md § 13.2)', () => {
-  beforeEach(() => s().reset());
+  beforeEach(() => resetStoreTo('karolinska'));
 
   it('a preset power outage creates records for Söderort and Huddinge with the start time and no end', () => {
     const t0 = s().clock;

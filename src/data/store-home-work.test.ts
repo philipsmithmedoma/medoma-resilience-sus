@@ -1,5 +1,8 @@
+import { resetStoreTo } from '@/test/packs';
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { useStore } from './store';
+import { impact } from '@/lib/reachability';
+import { homeSitesInScope } from '@/lib/home-sites';
 import { loadRoadModel } from '@/lib/roadModel';
 import { freeSlots } from './packs/home-visits';
 
@@ -8,6 +11,7 @@ const last = () => s().log[s().log.length - 1];
 const status = (id: string) => s().home.work[id]?.status ?? 'Unhandled';
 
 beforeAll(async () => {
+  resetStoreTo('karolinska');
   await loadRoadModel(useStore.getState().pack);
   useStore.getState().setHomeGeoReady();
 });
@@ -22,7 +26,7 @@ function setup() {
 }
 
 describe('actions per patient (SPEC.md § 13.3)', () => {
-  beforeEach(() => s().reset());
+  beforeEach(() => resetStoreTo('karolinska'));
 
   it('every patient starts Unhandled', () => {
     const { critical } = setup();
@@ -109,7 +113,8 @@ describe('actions per patient (SPEC.md § 13.3)', () => {
 
   it('"Contact all critical" sets Contacted on every critical row with the note "bulk contact", in one log entry', () => {
     s().applyHomePreset('power');
-    const critical = [...s().pack.homePatients].filter((p) => ['soderort', 'huddinge'].includes(p.zone) && (p.elCritical || p.waterCritical));
+    // Critical rows that can be phoned: the network has not fallen yet, so everyone critical can be reached.
+    const critical = impact(s().pack, s().home, homeSitesInScope('karolinska', s().scope), undefined, s().clock).rows.filter((r) => r.critical && !r.noContact).map((r) => r.patient);
     expect(critical.length).toBeGreaterThan(0);
     const n = s().log.length;
     s().contactAllCritical();
@@ -121,6 +126,8 @@ describe('actions per patient (SPEC.md § 13.3)', () => {
     }
     const others = s().pack.homePatients.filter((p) => !critical.includes(p));
     expect(others.every((p) => status(p.id) === 'Unhandled')).toBe(true);
+    expect(critical.some((p) => p.elCritical)).toBe(true);
+    expect(critical.some((p) => p.monitoringLevel === 'continuous')).toBe(true);
   });
 
   it('status resets to Unhandled only when the disruption that affected the patient ends; the log keeps the history', () => {

@@ -17,7 +17,7 @@ import { useHomeGeo } from './useHomeGeo';
 import { useHomeImpact } from './useHomeImpact';
 import { usePreparednessActive } from './usePreparednessActive';
 
-const REASON_TONE: Record<string, ChipTone> = { unreachable: 'red', detour: 'warning', power: 'red', water: 'red' };
+import { REASON_TONE } from '@/components/ReasonChips';
 const VISIT_TONE: Record<string, ChipTone> = { planned: 'grey', moved: 'blue', cancelled: 'warning', done: 'green' };
 
 function VisitItem({ r, row, selected, prep, onSelect }: { r: VisitRow; row?: ImpactRow; selected: boolean; prep: boolean; onSelect: () => void }) {
@@ -96,7 +96,7 @@ export function PlanningPage() {
     const lngs = pts.map((p) => p[1]);
     const pad = 0.01;
     return {
-      layers: { patients: false, roads: true, el: false, water: false },
+      layers: { patients: false, roads: true, el: false, water: false, tele: false },
       zones: [],
       infraNodes: [],
       infraLinks: [],

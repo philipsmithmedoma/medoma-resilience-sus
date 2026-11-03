@@ -3,9 +3,17 @@ import { t, tn, lt } from '@/lib/i18n';
 import { activeDisruptions } from '@/lib/disruptions';
 import { formatClock } from '@/lib/time';
 import { fictionalBasis } from '@/lib/home-sites';
+import { fmtDec } from '@/lib/format';
 import type { Impact } from '@/lib/reachability';
 import { ConfidenceChip } from '@/components/ConfidenceChip';
 import { Button } from '@/components/ui/button';
+
+/** "2 h", "45 min", "1 h 30 min": the countdown of the network fall. */
+function hoursText(minutes: number): string {
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return h === 0 ? `${m} min` : m === 0 ? `${h} h` : `${h} h ${m} min`;
+}
 
 /** Middle pane with disruptions (SPEC.md § 11.6): the active disruptions as text with a reset link, the headline and the facts. */
 export function ImpactPanel({ impact }: { impact: Impact }) {
@@ -29,18 +37,23 @@ export function ImpactPanel({ impact }: { impact: Impact }) {
   if (summary.unreachable > 0) {
     facts.push(tn('HOME.impact.facts.unreachable', summary.unreachable, { zones: summary.unreachableZones.map(zoneName).join(', ') }));
     facts.push(t('HOME.impact.facts.visitToday', { n: summary.unreachableVisitToday }));
-    facts.push(t('HOME.impact.facts.critical', { n: summary.unreachableCritical }));
   }
+  if (summary.powerCritical > 0) facts.push(t('HOME.impact.facts.powerCritical', { n: summary.powerCritical }));
+  if (summary.monitoringCritical > 0) facts.push(t('HOME.impact.facts.monitoringCritical', { n: summary.monitoringCritical }));
+  if (summary.noContact > 0) facts.push(tn('HOME.impact.facts.noContact', summary.noContact));
+  if (summary.noContactSoon) facts.push(t('HOME.impact.facts.noContactSoon', { n: summary.noContactSoon.patients, h: hoursText(summary.noContactSoon.minutes) }));
+  if (summary.heat > 0) facts.push(t('HOME.impact.facts.heat', { n: summary.heat }));
+  if (summary.cold > 0) facts.push(t('HOME.impact.facts.cold', { n: summary.cold }));
+  if (summary.supplyDaysLeft !== null) facts.push(t('HOME.impact.facts.supply', { d: fmtDec(Math.round(summary.supplyDaysLeft * 10) / 10) }));
+  if (summary.noPump > 0) facts.push(t('HOME.impact.facts.noPump', { n: summary.noPump }));
+  if (summary.medianExtraKm !== null) facts.push(t('HOME.impact.facts.extraKm', { median: summary.medianExtraKm, max: summary.maxExtraKm ?? 0 }));
   if (summary.powerOut > 0) {
     facts.push(tn('HOME.impact.facts.power', summary.powerOut));
     if (summary.shortestBattery !== null) facts.push(t('HOME.impact.facts.battery', { n: summary.shortestBattery }));
     if (summary.earliestBatteryEmptyAt !== null && summary.earliestBatteryEmptyAt > clock) facts.push(t('HOME.time.earliest', { hhmm: formatClock(summary.earliestBatteryEmptyAt) }));
     if (summary.runOutWithin2h > 0) facts.push(t('HOME.time.runOut', { n: summary.runOutWithin2h }));
   }
-  if (summary.waterOut > 0) {
-    facts.push(tn('HOME.impact.facts.water', summary.waterOut));
-    facts.push(t('HOME.impact.facts.dialysis', { n: summary.dialysis }));
-  }
+  if (summary.waterOut > 0) facts.push(tn('HOME.impact.facts.water', summary.waterOut));
   if (summary.teamCannotReach > 0) facts.push(t('HOME.teams.cannotReach', { n: summary.teamCannotReach, m: summary.teamReassignable }));
 
   return (
@@ -73,6 +86,8 @@ export function ImpactPanel({ impact }: { impact: Impact }) {
         </h2>
         {/* The patient count is a synthetic figure, so it carries the illustrative chip. */}
         <ConfidenceChip figure={{ value: total, confidence: 'illustrative', basis: fictionalBasis(pack.homePackId) }} />
+        <p className="text-small text-text-secondary">{t('HOME.impact.facts.silent30', { n: summary.silent30 })}</p>
+        {summary.noContact > 0 ? <p className="text-small text-text-secondary">{t('HOME.impact.facts.dark')}</p> : null}
         {facts.length ? (
           <ul className="space-y-1">
             {facts.map((f) => (

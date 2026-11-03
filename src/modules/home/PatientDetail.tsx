@@ -3,12 +3,12 @@ import { t, tm, lt } from '@/lib/i18n';
 import { formatClock } from '@/lib/time';
 import { fictionalMarking } from '@/lib/home-sites';
 import { visitStatusAt } from '@/data/packs/home-visits';
-import type { ImpactReason, ImpactRow } from '@/lib/reachability';
-import type { ChipTone } from '@/data/vocab';
-import { Chip } from '@/components/Chip';
+import type { ImpactRow } from '@/lib/reachability';
+import { ReasonChips } from '@/components/ReasonChips';
+import { RealtimeCells, SimulatedNote } from '@/components/Realtime';
+import { ExplanationChain } from './ExplanationChain';
 import { PatientActions } from './PatientActions';
 
-const REASON_TONE: Record<ImpactReason, ChipTone> = { unreachable: 'red', detour: 'warning', power: 'red', water: 'red' };
 
 interface PatientDetailProps {
   patientId: string;
@@ -30,7 +30,6 @@ export function PatientDetail({ patientId, row, prep }: PatientDetailProps) {
   const p = pack.homePatients.find((x) => x.id === patientId);
   if (!p) return null;
   const equipment = tm('HOME.equipment');
-  const reasons = tm('HOME.impact.reasons');
   const zone = pack.homeZones.find((z) => z.id === p.zone);
   const visit = visits.find((v) => v.patientId === p.id);
   const team = pack.homeTeams.find((x) => x.id === (work?.assignedTeam ?? visit?.teamId)) ?? pack.homeTeams.find((x) => x.name === p.team);
@@ -46,11 +45,7 @@ export function PatientDetail({ patientId, row, prep }: PatientDetailProps) {
       </div>
       {prep && row ? (
         <div className="flex flex-wrap gap-1" aria-label={t('HOME.detail.flags')}>
-          {row.reasons.map((r) => (
-            <Chip key={r} tone={REASON_TONE[r]}>
-              {reasons[r]}
-            </Chip>
-          ))}
+          <ReasonChips row={row} />
         </div>
       ) : null}
       <dl className="grid grid-cols-[100px_1fr] gap-x-3 gap-y-1.5">
@@ -71,6 +66,27 @@ export function PatientDetail({ patientId, row, prep }: PatientDetailProps) {
             </dd>
           </>
         ) : null}
+        {p.monitoringLevel !== 'none' ? (
+          <>
+            <dt className="text-text-secondary">{t('HOME.detail.monitoring')}</dt>
+            <dd>{p.monitoringReason ? t('HOME.monitoring.line', { level: tm('HOME.monitoring.level')[p.monitoringLevel], reason: tm('HOME.monitoring.reason')[p.monitoringReason] }) : tm('HOME.monitoring.level')[p.monitoringLevel]}</dd>
+          </>
+        ) : null}
+        {p.antibiotic ? (
+          <>
+            <dt className="text-text-secondary">{t('HOME.detail.antibiotic')}</dt>
+            <dd>{p.antibiotic}</dd>
+          </>
+        ) : null}
+        {prep ? (
+          <>
+            <dt className="text-text-secondary">{t('HOME.realtime.lastContact')}</dt>
+            <dd>
+              <RealtimeCells p={p} />
+              <SimulatedNote />
+            </dd>
+          </>
+        ) : null}
         <dt className="text-text-secondary">{t('HOME.detail.visit')}</dt>
         <dd className="tabular">
           {visit && status ? (
@@ -88,7 +104,8 @@ export function PatientDetail({ patientId, row, prep }: PatientDetailProps) {
           </>
         ) : null}
       </dl>
-      {prep && row?.affected ? <PatientActions patientId={p.id} reachableBy={row.reachableBy} /> : visit && status !== 'cancelled' && p.visitToday ? <PatientActions patientId={p.id} moveOnly /> : null}
+      {prep && row?.affected ? <ExplanationChain row={row} /> : null}
+      {prep && row?.affected ? <PatientActions patientId={p.id} reachableBy={row.reachableBy} row={row} /> : visit && status !== 'cancelled' && p.visitToday ? <PatientActions patientId={p.id} moveOnly /> : null}
     </div>
   );
 }

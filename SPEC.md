@@ -78,7 +78,7 @@ Equipment types and what depends on what (sources in `DATA.md` § 5; every batte
 | Syrgaskoncentrator, bärbar / Oxygen concentrator, portable | 2 % | yes | 2–5 h | reserve tubes 4–10 h |
 | Väska för egenmonitorering / Self-monitoring kit | 25 % | phone or hub | 12–24 h | data goes dark when the mobile network falls |
 
-50 % of patients have no equipment. A patient has one type, except that a Pump patient may also have a Droppställning. Hemrespirator and Hemdialys are not equipment types in this prototype; water disruption affects patients through a boil-water advisory (a marking in the list, nothing critical).
+50 % of patients have no equipment. A patient has at most one type. Hemrespirator and Hemdialys are not equipment types in this prototype; water disruption affects patients through a boil-water advisory (a marking in the list, nothing critical).
 
 Monitoring: patients with a self-monitoring kit are `spot` (daily measurements) in 60 % and `continuous` in 40 %; continuous splits arrhythmia 35 %, sepsis 40 %, respiratory 20 %, other 5 %. Patients without a kit are `none`. Level and reason are illustrative; the platform's own representation of monitoring level is "to verify".
 

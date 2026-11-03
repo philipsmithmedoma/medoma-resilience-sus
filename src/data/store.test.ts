@@ -9,8 +9,8 @@ describe('store (SPEC.md § 6)', () => {
 
   it('starts at 14:40 with the default pack, its default scope and an empty log', () => {
     expect(s().clock).toBe(INITIAL_CLOCK);
-    expect(s().scope).toBe('karolinska');
-    expect(s().pack.homePackId).toBe('karolinska');
+    expect(s().scope).toBe('sus');
+    expect(s().pack.homePackId).toBe('sus');
     expect(s().log).toHaveLength(0);
     expect(s().incident).toBeNull();
     expect(s().preparednessOn).toBe(false);

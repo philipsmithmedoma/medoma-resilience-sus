@@ -16,10 +16,15 @@ export interface DerivedSets {
   waterOutZones: Set<ZoneId>;
   /** Zone → clock minute at which the earliest active power disruption covering it started. */
   powerStart: Map<ZoneId, number>;
+  /** Zone → start of the earliest active tele disturbance, heatwave or cold; and the start of the earliest active supplier disruption. */
+  teleStart: Map<ZoneId, number>;
+  heatStart: Map<ZoneId, number>;
+  coldStart: Map<ZoneId, number>;
+  supplierStart: number | null;
 }
 
 export function deriveSets(records: readonly HomeDisruption[]): DerivedSets {
-  const sets: DerivedSets = { blockedWays: new Set(), blockedRoads: new Set(), blockedNodes: new Set(), powerOutZones: new Set(), waterOutZones: new Set(), powerStart: new Map() };
+  const sets: DerivedSets = { blockedWays: new Set(), blockedRoads: new Set(), blockedNodes: new Set(), powerOutZones: new Set(), waterOutZones: new Set(), powerStart: new Map(), teleStart: new Map(), heatStart: new Map(), coldStart: new Map(), supplierStart: null };
   for (const d of records) {
     if (!isActive(d)) continue;
     if (d.kind === 'road') {
@@ -30,8 +35,14 @@ export function deriveSets(records: readonly HomeDisruption[]): DerivedSets {
       sets.powerOutZones.add(d.target);
       const earlier = sets.powerStart.get(d.target);
       if (earlier === undefined || d.startedAt < earlier) sets.powerStart.set(d.target, d.startedAt);
-    } else {
+    } else if (d.kind === 'water') {
       sets.waterOutZones.add(d.target);
+    } else if (d.kind === 'supplier') {
+      sets.supplierStart = sets.supplierStart === null ? d.startedAt : Math.min(sets.supplierStart, d.startedAt);
+    } else {
+      const map = d.kind === 'tele' ? sets.teleStart : d.kind === 'heat' ? sets.heatStart : sets.coldStart;
+      const earlier = map.get(d.target);
+      if (earlier === undefined || d.startedAt < earlier) map.set(d.target, d.startedAt);
     }
   }
   return sets;
@@ -42,8 +53,8 @@ export function expiredIds(records: readonly HomeDisruption[], clock: number): s
   return records.filter((d) => isActive(d) && d.expectedEnd !== null && clock >= d.expectedEnd).map((d) => d.id);
 }
 
-/** Clock minute at which a battery of `hours` that started to drain at `startedAt` is empty. */
-export const batteryEmptyAt = (startedAt: number, hours: number): number => startedAt + hours * 60;
+/** Clock minute at which a battery of `hours` plus reserve tubes of `backupHours`, drained from `startedAt`, is empty. */
+export const batteryEmptyAt = (startedAt: number, hours: number, backupHours = 0): number => startedAt + (hours + backupHours) * 60;
 
 /** The next clock minute after `from` that reads hh:mm (today's if it is still ahead, else tomorrow's). */
 export function nextClockTime(from: number, hh: number, mm: number): number {

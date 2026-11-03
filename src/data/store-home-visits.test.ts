@@ -1,3 +1,4 @@
+import { resetStoreTo } from '@/test/packs';
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { useStore } from './store';
 import { loadRoadModel } from '@/lib/roadModel';
@@ -5,12 +6,13 @@ import { freeSlots } from './packs/home-visits';
 
 const s = () => useStore.getState();
 beforeAll(async () => {
+  resetStoreTo('karolinska');
   await loadRoadModel(useStore.getState().pack);
   useStore.getState().setHomeGeoReady();
 });
 
 describe('visits and the log (SPEC.md § 14.3, § 14.4)', () => {
-  beforeEach(() => s().reset());
+  beforeEach(() => resetStoreTo('karolinska'));
 
   it('Move visit works in normal operation: it changes the slot and logs it, with no status chain to move', () => {
     const patient = s().pack.homePatients.find((p) => p.visitToday)!;
@@ -38,8 +40,8 @@ describe('visits and the log (SPEC.md § 14.3, § 14.4)', () => {
 
   it('every entry of the module carries area "home" for the log filter, and the rest of the log does not', () => {
     s().togglePowerOut('huddinge');
-    s().advanceClock(60);
     s().contactAllCritical();
+    s().advanceClock(60);
     const log = s().log;
     const home = log.filter((e) => e.area === 'home').map((e) => e.action);
     expect(home).toEqual(expect.arrayContaining(['Slog ut elen i', 'Flyttade fram klockan', 'Kontaktade alla kritiska']));

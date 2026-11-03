@@ -6,6 +6,7 @@ import { effectiveVisits, freeSlots } from '@/data/packs/home-visits';
 import { formatClock } from '@/lib/time';
 import { homeSiteName } from '@/lib/home-sites';
 import { StatusChain } from '@/components/StatusChain';
+import type { ImpactRow } from '@/lib/reachability';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -16,7 +17,7 @@ type Form = null | 'contact' | 'move' | 'team';
  * The status chain and the five actions of one patient (SPEC.md § 13.3): Contact, Move visit (only with a visit today),
  * Send team, Bring in, Confirm. Used in the expanded row of /home and in the detail pane of /planning.
  */
-export function PatientActions({ patientId, reachableBy, moveOnly = false }: { patientId: string; reachableBy?: string[]; moveOnly?: boolean }) {
+export function PatientActions({ patientId, reachableBy, moveOnly = false, row }: { patientId: string; reachableBy?: string[]; moveOnly?: boolean; row?: ImpactRow }) {
   const pack = useStore((s) => s.pack);
   const work = useStore((s) => s.home.work[patientId]);
   const visits = useStore((s) => s.home.visits);
@@ -27,6 +28,8 @@ export function PatientActions({ patientId, reachableBy, moveOnly = false }: { p
   const sendTeam = useStore((s) => s.sendTeam);
   const bringInPatient = useStore((s) => s.bringInPatient);
   const confirmPatient = useStore((s) => s.confirmPatient);
+  const visitWithin2h = useStore((s) => s.visitWithin2h);
+  const heatRelief = useStore((s) => s.heatRelief);
   const [form, setForm] = useState<Form>(null);
   const [note, setNote] = useState('');
   const [slot, setSlot] = useState<string>('');
@@ -57,7 +60,7 @@ export function PatientActions({ patientId, reachableBy, moveOnly = false }: { p
       )}
       <div className="flex flex-wrap gap-2">
         {moveOnly ? null : (
-          <Button size="sm" variant="secondary" aria-expanded={form === 'contact'} onClick={() => toggle('contact')}>
+          <Button size="sm" variant="secondary" aria-expanded={form === 'contact'} disabled={row?.noContact} title={row?.noContact ? t('HOME.work.phoneNotPossible') : undefined} onClick={() => toggle('contact')}>
             {t('HOME.work.contact')}
           </Button>
         )}
@@ -71,6 +74,21 @@ export function PatientActions({ patientId, reachableBy, moveOnly = false }: { p
             <Button size="sm" variant="secondary" aria-expanded={form === 'team'} onClick={() => toggle('team')}>
               {t('HOME.work.sendTeam')}
             </Button>
+            {row?.monitoringCritical ? (
+              <Button size="sm" variant="secondary" onClick={() => visitWithin2h(patientId)}>
+                {t('HOME.work.visit2h')}
+              </Button>
+            ) : null}
+            {row?.heat && patient.equipment.includes('Pump') ? (
+              <>
+                <Button size="sm" variant="secondary" onClick={() => heatRelief(patientId, 'coolingPouch')}>
+                  {t('HOME.work.coolingPouch')}
+                </Button>
+                <Button size="sm" variant="secondary" onClick={() => heatRelief(patientId, 'shorterInfusion')}>
+                  {t('HOME.work.shorterInfusion')}
+                </Button>
+              </>
+            ) : null}
             <Button size="sm" variant="secondary" onClick={() => bringInPatient(patientId)}>
               {t('HOME.work.bringIn')}
             </Button>
@@ -80,6 +98,7 @@ export function PatientActions({ patientId, reachableBy, moveOnly = false }: { p
           </>
         )}
       </div>
+      {row?.noContact ? <p className="text-small text-text-secondary">{t('HOME.work.phoneNotPossible')}</p> : null}
       {form === 'contact' ? (
         <form
           className="flex items-center gap-2"

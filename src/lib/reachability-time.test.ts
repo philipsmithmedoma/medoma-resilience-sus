@@ -17,24 +17,24 @@ describe('battery deadlines in impact (SPEC.md § 13.2)', () => {
     const r = impact(pack, power(START), BOTH, model, START);
     const withBattery = r.rows.filter((x) => x.patient.batteryHours !== null);
     expect(withBattery.length).toBeGreaterThan(0);
-    for (const row of withBattery) expect(row.batteryEmptyAt).toBe(START + row.patient.batteryHours! * 60);
+    for (const row of withBattery) expect(row.batteryEmptyAt).toBe(START + (row.patient.batteryHours! + (row.patient.backupHours ?? 0)) * 60);
     for (const row of r.rows.filter((x) => x.patient.batteryHours === null)) expect(row.batteryEmptyAt).toBeNull();
     expect(r.rows.every((x) => !x.batteryEmpty)).toBe(true);
   });
 
   it('rows whose clock has passed the deadline are battery empty and critical whatever the equipment', () => {
     const rows = impact(pack, power(START), BOTH, model, START).rows;
-    const monitoring = rows.find((x) => !x.patient.elCritical && x.patient.batteryHours !== null)!;
+    const monitoring = rows.find((x) => !x.patient.elCritical && x.patient.batteryHours !== null && x.patient.monitoringLevel !== 'continuous')!;
     expect(monitoring.critical).toBe(false);
     const late = impact(pack, power(START), BOTH, model, monitoring.batteryEmptyAt!).rows.find((x) => x.patient.id === monitoring.patient.id)!;
     expect(late.batteryEmpty).toBe(true);
     expect(late.critical).toBe(true);
-    expect(priorityTier(late)).toBe(2);
+    expect(priorityTier(late)).toBe(3);
   });
 
   it('counts the patients that run out within 2 h, the empty ones included, and finds the first deadline', () => {
     const base = impact(pack, power(START), BOTH, model, START);
-    const hours = base.rows.map((x) => x.patient.batteryHours).filter((h): h is number => h !== null);
+    const hours = base.rows.filter((x) => x.patient.batteryHours !== null).map((x) => x.patient.batteryHours! + (x.patient.backupHours ?? 0));
     const first = Math.min(...hours);
     expect(base.summary.earliestBatteryEmptyAt).toBe(START + first * 60);
     const within = (clock: number) => hours.filter((h) => START + h * 60 <= clock + 120).length;
@@ -53,11 +53,13 @@ describe('battery deadlines in impact (SPEC.md § 13.2)', () => {
 
 describe('prioritise by batteryEmptyAt (SPEC.md § 13.2)', () => {
   const patient = (id: string, hours: number) => ({
-    id, familyName: id, givenName: 'X', age: 70, zone: 'huddinge', street: 'Gatan', houseNo: 1, lat: 0, lng: 0, team: 'ASIH Syd', equipment: [], batteryHours: hours,
-    visitToday: false, elCritical: true, waterCritical: false,
+    id, familyName: id, givenName: 'X', personalNumber: '19500101-0000', age: 70, zone: 'huddinge', street: 'Gatan', houseNo: 1, lat: 0, lng: 0, team: 'ASIH Syd', equipment: [], batteryHours: hours,
+    backupHours: null, monitoringLevel: 'none' as const, monitoringReason: null, antibiotic: null, heatSensitive: false, visitToday: false, elCritical: true,
+    enrolledOn: '2026-09-01', plannedDischargeOn: '2026-09-20', appLoggedIn: true,
   });
   const row = (id: string, hours: number, emptyAt: number | null): ImpactRow => ({
-    patient: patient(id, hours), reasons: ['power'], unreachable: false, delayed: false, power: true, water: false, affected: true, critical: true, batteryEmptyAt: emptyAt,
+    patient: patient(id, hours), reasons: ['power'], unreachable: false, delayed: false, power: true, water: false, noContact: false, noContactAt: null, heat: false, cold: false, noPump: false, affected: true,
+    grounds: ['power'], critical: true, powerCritical: true, monitoringCritical: false, batteryEmptyAt: emptyAt,
   });
 
   it('orders power-out rows by the deadline, not by battery hours', () => {

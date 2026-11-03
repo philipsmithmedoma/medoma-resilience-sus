@@ -1,0 +1,1 @@
+{"type":"FeatureCollection","features":[{"type":"Feature","properties":{"id":9800001,"name":"Ringsjöverket","operator":"Sydvatten"},"geometry":{"type":"Point","coordinates":[13.3942,55.8951]}},{"type":"Feature","properties":{"id":9800002,"name":"Vombverket","operator":"Sydvatten"},"geometry":{"type":"Point","coordinates":[13.5287,55.6628]}}]}

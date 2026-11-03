@@ -374,3 +374,29 @@ export function pathWayNames(g: RoadGraph, paths: Paths, vertex: number): string
   }
   return names.reverse();
 }
+
+/** Distance in metres from a point to the straight segment between two coordinates (equirectangular, good for a few hundred metres). */
+export function pointToSegmentM(lat: number, lng: number, aLat: number, aLng: number, bLat: number, bLng: number): number {
+  const kx = 111320 * Math.cos((lat * Math.PI) / 180);
+  const ky = 111320;
+  const ax = (aLng - lng) * kx;
+  const ay = (aLat - lat) * ky;
+  const bx = (bLng - lng) * kx;
+  const by = (bLat - lat) * ky;
+  const dx = bx - ax;
+  const dy = by - ay;
+  const len2 = dx * dx + dy * dy;
+  const t = len2 === 0 ? 0 : Math.max(0, Math.min(1, -(ax * dx + ay * dy) / len2));
+  return Math.hypot(ax + t * dx, ay + t * dy);
+}
+
+/** Indexes of the ways that have an edge within `radiusM` of a point (SPEC.md § 6.1, § 6 cold chain). */
+export function waysNearPoint(g: RoadGraph, lat: number, lng: number, radiusM: number): number[] {
+  const near = new Set<number>();
+  for (let e = 0; e < g.edgeFrom.length; e++) {
+    const a = g.edgeFrom[e];
+    const b = g.edgeTo[e];
+    if (pointToSegmentM(lat, lng, g.lat[a], g.lng[a], g.lat[b], g.lng[b]) <= radiusM) near.add(g.edgeWay[e]);
+  }
+  return [...near];
+}

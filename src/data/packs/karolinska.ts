@@ -1,7 +1,7 @@
 // The Karolinska home pack (DATA.md § 4): two sites, ten zones, four ASIH teams, the water, electricity and road nodes around the
 // hospitals, three illustrative notices and the sources S-H1…S-H14. Coordinates from Google Places, read 2026-11-02 (`reported`).
 // Copied from the source (Medoma-Resilience-KS); the hospital-management data of the source is not part of this repository.
-import type { Confidence, HomeDisruptionPreset, HomeSite, HomeZone, InfraLayer, InfraLink, InfraNode, LocalizedText, Message, SourceRef } from './types';
+import type { Confidence, Figure, HomeDisruptionPreset, HomeEquipment, HomeSite, HomeZone, InfraLayer, InfraLink, InfraNode, LocalizedText, Message, SourceRef } from './types';
 
 /** A text in both languages (DESIGN-LANG.md § 3). */
 const tx = (svText: string, enText: string): LocalizedText => ({ sv: svText, en: enText });
@@ -50,13 +50,14 @@ export const HOME_MESSAGES: Message[] = [
 const PLACES = 'Google Places, 2026-11-02';
 
 const zoneVertex = (id: string) => `zone:${id}`;
-const zone = (id: string, name: LocalizedText, lat: number, lng: number, radiusKm: number): HomeZone => ({
+const zone = (id: string, name: LocalizedText, lat: number, lng: number, radiusKm: number, urban = true): HomeZone => ({
   id,
   name,
   lat,
   lng,
   radiusKm,
   graphNode: zoneVertex(id),
+  urban,
   coordConfidence: 'reported',
   coordSource: PLACES,
 });
@@ -68,7 +69,7 @@ export const HOME_ZONES: HomeZone[] = [
   zone('sodermalm', tx('Södermalm', 'Södermalm'), 59.3125, 18.0616, 1.8),
   zone('soderort', tx('Söderort', 'Southern suburbs'), 59.2986, 18.0459, 2.5),
   zone('huddinge', tx('Huddinge', 'Huddinge'), 59.2365, 17.9818, 2.5),
-  zone('botkyrka', tx('Botkyrka', 'Botkyrka'), 59.1988, 17.8332, 2.5),
+  zone('botkyrka', tx('Botkyrka', 'Botkyrka'), 59.1988, 17.8332, 2.5, false),
   zone('nacka', tx('Nacka', 'Nacka'), 59.31, 18.1648, 2.5),
   zone('lidingo', tx('Lidingö', 'Lidingö'), 59.3661, 18.1352, 2.0),
   zone('taby', tx('Täby', 'Täby'), 59.4451, 18.0717, 2.5),
@@ -381,5 +382,15 @@ export const HOME_SOURCES: SourceRef[] = [
 export const HOME_PRESETS: HomeDisruptionPreset[] = [
   { key: 'bridge', name: tx('Bro avstängd', 'Bridge closed'), blockedNodes: ['r-essingeleden', 'r-centralbron'], powerOutZones: [], waterOutZones: [], description: tx('Stänger Essingeleden och Centralbron.', 'Closes Essingeleden and Centralbron.') },
   { key: 'power', name: tx('Elavbrott', 'Power outage'), blockedNodes: [], powerOutZones: ['soderort', 'huddinge'], waterOutZones: [], description: tx('Slår ut elen i Söderort och Huddinge.', 'Cuts the power in the southern suburbs and Huddinge.') },
-  { key: 'water', name: tx('Vattenstörning', 'Water disruption'), blockedNodes: [], powerOutZones: [], waterOutZones: ['solna'], description: tx('Stör vattnet i Solna och Sundbyberg.', 'Disrupts the water in Solna and Sundbyberg.') },
+  { key: 'water', name: tx('Vattenstörning', 'Water disruption'), blockedNodes: [], powerOutZones: [], waterOutZones: ['solna'], description: tx('Kokningsrekommendation i Solna och Sundbyberg.', 'Boil-water advisory in Solna and Sundbyberg.') },
+  { key: 'heat', name: tx('Värmebölja', 'Heatwave'), blockedNodes: [], powerOutZones: [], waterOutZones: [], heatZones: ['soderort', 'innerstaden'], description: tx('Värmebölja i Söderort och Innerstaden.', 'Heatwave in the southern suburbs and the inner city.') },
+  { key: 'cold', name: tx('Kyla med elavbrott', 'Cold with power outage'), blockedNodes: [], powerOutZones: ['botkyrka'], waterOutZones: [], coldZones: ['botkyrka'], description: tx('Kyla och elavbrott i Botkyrka.', 'Cold and a power outage in Botkyrka.') },
 ];
+
+/** Illustrative stock added to the in-use count of each equipment type (SPEC.md § 8). */
+const stock = (value: number): Figure => ({ value, confidence: 'illustrative', basis: 'scenariobaslinje' });
+export const KAROLINSKA_EQUIPMENT_STOCK: Record<HomeEquipment, Figure> = {
+  'IV stand': stock(4), Pump: stock(3), 'Oxygen stationary': stock(1), 'Oxygen portable': stock(1), 'Self-monitoring kit': stock(6),
+};
+/** The cold chain: days of infusers in stock at the unit, illustrative. */
+export const KAROLINSKA_UNIT_STOCK = { infusorsDays: { value: 3, confidence: 'illustrative', basis: 'scenariobaslinje' } satisfies Figure };
