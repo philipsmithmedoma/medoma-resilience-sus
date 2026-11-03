@@ -1,0 +1,463 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+/* DESIGN-DARK.md § 1: the theme is the class "dark" on <html>. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+  DESIGN.md § 1 tokens (light values) and DESIGN-DARK.md § 2 (dark values below).
+  This file is the only place a hex literal may appear. Declared inside @theme so that
+  Tailwind emits them as CSS variables on :root and exposes them as utilities with the
+  same names (bg-primary, text-text-secondary, border-border, ...); the .dark block
+  overrides the variables for the dark theme.
+*/
+@theme {
+  --color-*: initial;
+
+  /* Core */
+  --color-primary: #186ce9;
+  --color-primary-hover: #1663d6; /* 8 % darker than primary */
+  --color-primary-text: #186ce9; /* links, active tab text, secondary buttons, focus ring */
+  --color-text: #000000;
+  --color-text-secondary: #5a5a5a;
+  --color-text-muted: #8b8b8b;
+  --color-bg: #ffffff;
+  --color-surface: #ffffff; /* nav, cards, dialogs, sheets, popovers */
+  --color-bg-muted: #f5f6f7;
+  --color-border: #eaeced;
+  --color-border-input: #cccccc;
+  --color-badge: #000000;
+  --color-badge-text: #ffffff;
+  --color-track: #eaeced; /* ladder and scenario bar tracks */
+  --color-overlay: rgba(0, 0, 0, 0.5);
+
+  /* Semantic */
+  --color-red: #e33026;
+  --color-red-icon: #eb5757;
+  --color-red-light: #fdeeee;
+  --color-red-pill: #fac4c4;
+  --color-orange: #f2994a;
+  --color-orange-light: #fef5ed;
+  --color-orange-pill: #ffcf99;
+  --color-orange-text: #9a7040;
+  --color-brown: #7b460a;
+  --color-green: #1aa339;
+  --color-green-text: #2c872b;
+  --color-green-light: #e8f6eb;
+  --color-green-pill: #cbe8c0;
+  --color-blue-pill: #cdddff;
+  --color-indigo: #7488ed;
+  --color-indigo-light: #f1f3fd;
+  --color-purple: #bb6bd9;
+  --color-purple-light: #f8f0fb;
+  --color-teal: #13a0b9;
+  --color-olive: #b9ab41;
+
+  /* Status chips: fill, border, text per tone (DESIGN.md § 4, DESIGN-DARK.md § 2) */
+  --color-chip-red-bg: #fdeeee;
+  --color-chip-red-border: #eb5757;
+  --color-chip-red-text: #e33026;
+  --color-chip-orange-bg: #fef5ed;
+  --color-chip-orange-border: #f2994a;
+  --color-chip-orange-text: #9a7040;
+  --color-chip-green-bg: #e8f6eb;
+  --color-chip-green-border: #1aa339;
+  --color-chip-green-text: #2c872b;
+  --color-chip-blue-bg: #cdddff;
+  --color-chip-blue-border: #186ce9;
+  --color-chip-blue-text: #000000;
+  --color-chip-grey-bg: #f5f6f7;
+  --color-chip-grey-border: #eaeced;
+  --color-chip-grey-text: #5a5a5a;
+
+  /* Role pills (Doc/Nrs/AsPr/Supp): fill and dashed border */
+  --color-pill-doc: #fac4c4;
+  --color-pill-doc-border: #c89d9d;
+  --color-pill-nrs: #cdddff;
+  --color-pill-nrs-border: #a4b2cc;
+  --color-pill-aspr: #cbe8c0;
+  --color-pill-aspr-border: #a2ba9a;
+  --color-pill-supp: #ffcf99;
+  --color-pill-supp-border: #cca67a;
+
+  /* Icon tiles: tinted background and icon colour */
+  --color-tile-indigo: #f1f3fd;
+  --color-tile-red: #fdeeee;
+  --color-tile-purple: #f8f0fb;
+  --color-tile-orange: #fef5ed;
+  --color-tile-green: #e8f6eb;
+  --color-icon-primary: #186ce9;
+  --color-icon-red: #eb5757;
+  --color-icon-orange: #f2994a;
+  --color-icon-green: #1aa339;
+  --color-icon-purple: #bb6bd9;
+  --color-icon-indigo: #7488ed;
+  --color-icon-teal: #13a0b9;
+  --color-icon-olive: #b9ab41;
+
+  /* Incident banner and avatar */
+  --color-banner-orange-bg: #fef5ed;
+  --color-banner-orange-border: #f2994a;
+  --color-banner-red-bg: #fdeeee;
+  --color-banner-red-border: #eb5757;
+  --color-avatar-bg: #fef5ed;
+  --color-avatar-text: #7b460a;
+
+  /* shadcn/ui token names mapped onto the palette */
+  --color-background: #ffffff;
+  --color-foreground: #000000;
+  --color-card: #ffffff;
+  --color-card-foreground: #000000;
+  --color-popover: #ffffff;
+  --color-popover-foreground: #000000;
+  --color-primary-foreground: #ffffff;
+  --color-secondary: #f5f6f7;
+  --color-secondary-foreground: #000000;
+  --color-muted: #f5f6f7;
+  --color-muted-foreground: #8b8b8b;
+  --color-accent: #f5f6f7;
+  --color-accent-foreground: #000000;
+  --color-destructive: #e33026;
+  --color-input: #cccccc;
+  --color-ring: #186ce9;
+
+  --font-sans: "Inter Variable", system-ui, sans-serif;
+
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 8px;
+
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+/* DESIGN-DARK.md § 2 dark tokens */
+.dark {
+  --color-primary-hover: #3b82ec;
+  --color-primary-text: #4d8ef0;
+  --color-text: #e6e8eb;
+  --color-text-secondary: #a0a6ae;
+  --color-text-muted: #7a8189;
+  --color-bg: #15181c;
+  --color-surface: #1b1f24;
+  --color-bg-muted: #22272e;
+  --color-border: #2c323a;
+  --color-border-input: #3a414a;
+  --color-badge: #e6e8eb;
+  --color-badge-text: #15181c;
+  --color-track: #22272e;
+  --color-overlay: rgba(0, 0, 0, 0.6);
+
+  --color-orange-text: #f5a962;
+  --color-green-text: #4cc26a;
+  --color-red-light: color-mix(in srgb, var(--color-red) 18%, transparent);
+  --color-orange-light: color-mix(in srgb, var(--color-orange) 18%, transparent);
+  --color-green-light: color-mix(in srgb, var(--color-green) 18%, transparent);
+  --color-indigo-light: color-mix(in srgb, var(--color-indigo) 18%, transparent);
+  --color-purple-light: color-mix(in srgb, var(--color-purple) 18%, transparent);
+  --color-blue-pill: color-mix(in srgb, var(--color-primary) 22%, transparent);
+  --color-red-pill: color-mix(in srgb, var(--color-red) 22%, transparent);
+  --color-orange-pill: color-mix(in srgb, var(--color-orange) 22%, transparent);
+  --color-green-pill: color-mix(in srgb, var(--color-green) 22%, transparent);
+  --color-teal: #3fc0d8;
+  --color-olive: #d3c55a;
+
+  --color-chip-red-bg: color-mix(in srgb, var(--color-red) 16%, transparent);
+  --color-chip-red-border: color-mix(in srgb, var(--color-red) 60%, transparent);
+  --color-chip-red-text: #f07470;
+  --color-chip-orange-bg: color-mix(in srgb, var(--color-orange) 16%, transparent);
+  --color-chip-orange-border: color-mix(in srgb, var(--color-orange) 60%, transparent);
+  --color-chip-orange-text: #f5a962;
+  --color-chip-green-bg: color-mix(in srgb, var(--color-green) 16%, transparent);
+  --color-chip-green-border: color-mix(in srgb, var(--color-green) 60%, transparent);
+  --color-chip-green-text: #4cc26a;
+  --color-chip-blue-bg: color-mix(in srgb, var(--color-primary) 16%, transparent);
+  --color-chip-blue-border: color-mix(in srgb, var(--color-primary) 60%, transparent);
+  --color-chip-blue-text: #66a0f3; /* DESIGN-DARK.md says #4D8EF0, which measures 4,36:1 on the fill; lightened to pass 4,5:1 */
+  --color-chip-grey-bg: var(--color-bg-muted);
+  --color-chip-grey-border: var(--color-border-input);
+  --color-chip-grey-text: var(--color-text-secondary);
+
+  --color-pill-doc: color-mix(in srgb, var(--color-red) 22%, transparent);
+  --color-pill-doc-border: color-mix(in srgb, var(--color-red) 50%, transparent);
+  --color-pill-nrs: color-mix(in srgb, var(--color-primary) 22%, transparent);
+  --color-pill-nrs-border: color-mix(in srgb, var(--color-primary) 50%, transparent);
+  --color-pill-aspr: color-mix(in srgb, var(--color-green) 22%, transparent);
+  --color-pill-aspr-border: color-mix(in srgb, var(--color-green) 50%, transparent);
+  --color-pill-supp: color-mix(in srgb, var(--color-orange) 22%, transparent);
+  --color-pill-supp-border: color-mix(in srgb, var(--color-orange) 50%, transparent);
+
+  --color-tile-indigo: color-mix(in srgb, var(--color-indigo) 18%, transparent);
+  --color-tile-red: color-mix(in srgb, var(--color-red) 18%, transparent);
+  --color-tile-purple: color-mix(in srgb, var(--color-purple) 18%, transparent);
+  --color-tile-orange: color-mix(in srgb, var(--color-orange) 18%, transparent);
+  --color-tile-green: color-mix(in srgb, var(--color-green) 18%, transparent);
+  /* Icon colours lightened 15 % towards white */
+  --color-icon-primary: #3b82ec;
+  --color-icon-red: #ee7070;
+  --color-icon-orange: #f4a865;
+  --color-icon-green: #3cb157;
+  --color-icon-purple: #c581df;
+  --color-icon-indigo: #899af0;
+  --color-icon-teal: #3fc0d8;
+  --color-icon-olive: #d3c55a;
+
+  --color-banner-orange-bg: color-mix(in srgb, var(--color-orange) 22%, transparent);
+  --color-banner-orange-border: var(--color-orange);
+  --color-banner-red-bg: color-mix(in srgb, var(--color-red) 22%, transparent);
+  --color-banner-red-border: var(--color-red);
+  --color-avatar-bg: #22272e;
+  --color-avatar-text: #f5a962;
+
+  --color-background: #1b1f24;
+  --color-foreground: #e6e8eb;
+  --color-card: #1b1f24;
+  --color-card-foreground: #e6e8eb;
+  --color-popover: #1b1f24;
+  --color-popover-foreground: #e6e8eb;
+  --color-secondary: #22272e;
+  --color-secondary-foreground: #e6e8eb;
+  --color-muted: #22272e;
+  --color-muted-foreground: #7a8189;
+  --color-accent: #22272e;
+  --color-accent-foreground: #e6e8eb;
+  --color-input: #3a414a;
+  --color-ring: #4d8ef0;
+
+  --shadow-card: none;
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+  html {
+    color-scheme: light;
+  }
+  html.dark {
+    color-scheme: dark;
+  }
+  body {
+    margin: 0;
+    background: var(--color-bg);
+    color: var(--color-text);
+    font-family: var(--font-sans);
+    font-size: 15px;
+    line-height: 22px;
+    font-weight: 400;
+    min-width: 1280px;
+    -webkit-font-smoothing: antialiased;
+  }
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
+  }
+  table,
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+  label {
+    display: block;
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-primary-text);
+    outline-offset: 1px;
+  }
+}
+
+/* DESIGN.md § 2 type scale */
+@utility text-title {
+  font-size: 24px;
+  line-height: 32px;
+  font-weight: 600;
+}
+@utility text-heading {
+  font-size: 18px;
+  line-height: 28px;
+  font-weight: 600;
+}
+@utility text-nav {
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 500;
+}
+@utility text-body {
+  font-size: 15px;
+  line-height: 22px;
+  font-weight: 400;
+}
+@utility text-small {
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 400;
+}
+@utility text-figure {
+  font-size: 32px;
+  line-height: 40px;
+  font-weight: 600;
+}
+
+/* Map labels for area nodes (ASIH circle): plain text, no tooltip box (DESIGN-KS.md § 8). */
+.leaflet-tooltip.node-map-label {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  color: var(--color-primary-text);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 500;
+}
+.leaflet-tooltip.node-map-label::before {
+  display: none;
+}
+
+/* Map surfaces follow the theme: tooltips, popups and the attribution strip (DESIGN-DARK.md § 3). */
+html .leaflet-container {
+  background: var(--color-bg-muted);
+  font-family: var(--font-sans);
+}
+html .leaflet-tooltip:not(.node-map-label):not(.home-map-label),
+html .leaflet-popup-content-wrapper,
+html .leaflet-popup-tip {
+  background: var(--color-surface);
+  color: var(--color-text);
+  border-color: var(--color-border);
+  box-shadow: var(--shadow-card);
+}
+html .leaflet-popup-content-wrapper {
+  border-radius: 8px;
+}
+html .leaflet-container a.leaflet-popup-close-button {
+  color: var(--color-text-secondary);
+}
+html .leaflet-container .leaflet-control-attribution {
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  font-family: var(--font-sans);
+}
+html .leaflet-container .leaflet-control-attribution a {
+  color: var(--color-primary-text);
+}
+html .leaflet-bar a {
+  background: var(--color-surface);
+  color: var(--color-text);
+  border-bottom-color: var(--color-border);
+}
+html .leaflet-bar a:hover {
+  background: var(--color-bg-muted);
+}
+/* Dark mode: invert the OpenStreetMap tiles only; markers, lines and the ASIH circle sit in other panes. */
+.dark .leaflet-tile-pane {
+  filter: invert(1) hue-rotate(180deg) brightness(0.85) contrast(0.9) saturate(0.6);
+}
+
+/* Hospital at Home map symbols (SPEC.md § 11.6): the layer colour arrives as --node-colour, a design token. */
+.home-node-wrap {
+  background: transparent;
+  border: 0;
+}
+.home-node {
+  box-sizing: border-box;
+  display: flex;
+  width: 18px;
+  height: 18px;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--node-colour);
+  background: var(--node-colour);
+  color: var(--color-surface);
+  font: 600 12px/1 var(--font-sans);
+}
+.home-node-circle {
+  border-radius: 50%;
+}
+.home-node-square {
+  border-radius: 3px;
+}
+.home-node-diamond {
+  width: 14px;
+  height: 14px;
+  margin: 2px;
+  border-radius: 3px;
+  transform: rotate(45deg);
+}
+.home-node-diamond > span {
+  transform: rotate(-45deg);
+}
+.home-node-open {
+  background: var(--color-surface);
+  color: var(--node-colour);
+}
+.home-arrow {
+  display: block;
+  width: 0;
+  height: 0;
+  margin: 1px 2px;
+  border-right: 5px solid transparent;
+  border-bottom: 12px solid var(--node-colour);
+  border-left: 5px solid transparent;
+}
+/* Plain secondary-coloured map labels for zones and off-map arrows. */
+.leaflet-tooltip.home-map-label {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  color: var(--color-text-secondary);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 500;
+  text-shadow: 0 0 3px var(--color-surface), 0 0 3px var(--color-surface);
+}
+.leaflet-tooltip.home-map-label::before {
+  display: none;
+}
+.home-node-dim {
+  opacity: 0.25;
+}
+.home-node-selected {
+  box-shadow: 0 0 0 3px var(--color-primary);
+}
+.leaflet-tooltip.home-map-label-dim {
+  opacity: 0.35;
+}
+
+/* SPEC.md § 13.3 – the call list prints plain on A4. */
+@page {
+  size: A4;
+  margin: 12mm;
+}
+@media print {
+  body {
+    background: #fff;
+    color: #000;
+  }
+}
+
+.home-team {
+  display: block;
+  width: 10px;
+  height: 10px;
+  background: var(--node-colour);
+  border: 1.5px solid var(--color-surface);
+  box-shadow: 0 0 0 1px var(--node-colour);
+}
+
+.home-stop {
+  display: flex;
+  width: 22px;
+  height: 22px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  background: var(--node-colour);
+  border: 2px solid var(--color-surface);
+  color: var(--color-primary-foreground);
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.home-stop-selected {
+  box-shadow: 0 0 0 3px var(--color-primary);
+}

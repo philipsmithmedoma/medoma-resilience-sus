@@ -1,0 +1,1 @@
+{"type":"FeatureCollection","features":[{"type":"Feature","properties":{"id":9300001,"name":"Görvälnverket","operator":"Norrvatten"},"geometry":{"type":"Point","coordinates":[17.7819,59.4331]}},{"type":"Feature","properties":{"id":9300002,"name":"Lovö vattenverk","operator":"SVOA"},"geometry":{"type":"Point","coordinates":[17.8093,59.3307]}}]}

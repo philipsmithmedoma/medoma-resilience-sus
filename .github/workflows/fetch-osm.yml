@@ -1,0 +1,120 @@
+name: Fetch OpenStreetMap data
+
+# Manual run: fetches the OpenStreetMap geometry for the chosen home pack(s), regenerates the patients, runs the tests
+# and opens a pull request against main with the changed files under src/data/packs/ (DECISIONS.md, "OpenStreetMap data").
+on:
+  workflow_dispatch:
+    inputs:
+      pack:
+        description: Home pack to fetch
+        type: choice
+        options:
+          - karolinska
+          - lund
+          - both
+        default: both
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      BRANCH: osm-data-run
+      GH_TOKEN: ${{ github.token }}
+      PACK: ${{ inputs.pack }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+
+      - name: Fetch OpenStreetMap geometry
+        # Exit code 2 from the script means that every file it could fetch is written and some are missing: carry on.
+        run: |
+          if [ "$PACK" = "both" ]; then packs="karolinska lund"; else packs="$PACK"; fi
+          : > "$RUNNER_TEMP/missing.txt"
+          for p in $packs; do
+            set +e
+            node scripts/fetch-osm.mjs "$p"
+            code=$?
+            set -e
+            if [ "$code" -eq 2 ]; then
+              echo "::warning::fetch-osm.mjs $p: some files could not be fetched; continuing with what exists."
+            elif [ "$code" -ne 0 ]; then
+              exit "$code"
+            fi
+            for f in roads streets power water; do
+              [ -f "src/data/packs/geo/$p/$f.json" ] || echo "$p/$f.json" >> "$RUNNER_TEMP/missing.txt"
+            done
+          done
+
+      - name: Generate patients
+        run: node scripts/generate-patients.mjs
+
+      - name: Tests (allowed to fail, output is kept)
+        run: |
+          set +e
+          npm test 2>&1 | tee "$RUNNER_TEMP/test-output.txt"
+          echo "Test exit code: ${PIPESTATUS[0]}"
+          exit 0
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: test-output
+          path: ${{ runner.temp }}/test-output.txt
+
+      - name: Commit, push and open the pull request
+        run: |
+          git add -A src/data/packs/
+          if git diff --cached --quiet; then
+            echo "No changed files under src/data/packs/: nothing to commit."
+            exit 0
+          fi
+
+          {
+            echo "Datafiler (storlek i byte):"
+            echo
+            git diff --cached --name-only | while read -r f; do
+              printf -- '- `%s`: %s\n' "$f" "$(stat -c %s "$f")"
+            done
+            echo
+            echo "Pack: $PACK"
+            echo
+            if [ -s "$RUNNER_TEMP/missing.txt" ]; then
+              echo "Filer som saknas (hämtningen från Overpass misslyckades, kör om workflowen för dem):"
+              echo
+              while read -r f; do printf -- '- `%s`\n' "$f"; done < "$RUNNER_TEMP/missing.txt"
+            else
+              echo "Inga filer saknas."
+            fi
+            echo
+            echo "Testutskrift, sista 60 raderna:"
+            echo
+            echo '```'
+            tail -n 60 "$RUNNER_TEMP/test-output.txt"
+            echo '```'
+          } > "$RUNNER_TEMP/pr-body.md"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B "$BRANCH"
+          git commit -m "data: OpenStreetMap geometry $(date -u +%Y-%m-%d)"
+          git push --force origin "$BRANCH"
+
+          if gh pr create --base main --head "$BRANCH" \
+              --title "data: OpenStreetMap geometry $(date -u +%Y-%m-%d)" \
+              --body-file "$RUNNER_TEMP/pr-body.md"; then
+            echo "Pull request opened from $BRANCH."
+          elif [ -n "$(gh pr list --head "$BRANCH" --base main --state open --json number --jq '.[].number' 2>/dev/null)" ]; then
+            gh pr edit "$BRANCH" --body-file "$RUNNER_TEMP/pr-body.md" || true
+            echo "A pull request from $BRANCH already exists; its description was updated."
+          else
+            echo "::warning::Could not open a pull request (missing permission?). The data is on branch $BRANCH."
+            echo "Branch: $BRANCH"
+          fi
