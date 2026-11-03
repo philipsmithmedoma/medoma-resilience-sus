@@ -8,12 +8,16 @@ import type { BeredskapsLage, Confidence, HomeEquipment, Priority, Profession, T
 // Swedish (default)
 export const sv = {
   MODULES: {
+    overview: 'Översikt',
     home: 'Sjukhus hemma',
     incident: 'Incident',
+    dependencies: 'Beroenden',
     patients: 'Patienter',
     activities: 'Aktiviteter',
     planning: 'Planering',
+    capacity: 'Kapacitet',
     employees: 'Medarbetare',
+    equipment: 'Utrustning',
     reporting: 'Rapportering',
   },
 
@@ -115,6 +119,7 @@ export const sv = {
     homeEndedExpected: 'Störning avslutad (beräknad tid nådd)',
     homeClockAdvanced: 'Flyttade fram klockan',
     homeClockDetail: '+{n} min',
+    homeClick: 'Klickade på knappen',
     homeSources: { map: 'från kartan', preset: 'från förinställning', message: 'från meddelande', hypothesis: 'från misstänkt störning', panel: 'från panelen' },
     homeHeatOn: 'Startade värmebölja i',
     homeHeatOff: 'Avslutade värmebölja i',
@@ -225,7 +230,22 @@ export const sv = {
       status: { planned: 'Planerat', moved: 'Flyttat', cancelled: 'Inställt', done: 'Genomfört' },
       from: 'från {team}',
     },
-    patientsPage: { title: 'Patienter ({n})', select: 'Välj en patient i listan för att se detaljer och åtgärder.' },
+    patientsPage: {
+      title: 'Patienter ({n})',
+      select: 'Välj en patient i listan för att se detaljer och åtgärder.',
+      search: 'Sök patient',
+      register: 'Registrera patient',
+      dayOverview: 'Visa dagsöversikt',
+      clicked: 'Klickade på',
+      tabs: { label: 'Patientstatus', assessment: 'Under bedömning', enrolled: 'Inskrivna', paused: 'Pausade', discharged: 'Utskrivna', all: 'Alla' },
+      columns: { disruption: 'Störning', familyName: 'Efternamn', givenName: 'Förnamn', personalNumber: 'Personnummer', type: 'Patienttyp', area: 'Område', responsible: 'Patientansvarig', enrolled: 'Inskriven', plannedDischarge: 'Planerad utskrivning', app: 'Patientapp', lastContact: 'Senast kontakt' },
+      type: 'Sjukhus hemma',
+      appIn: 'Inloggad',
+      appOut: 'Ej inloggad',
+      noRows: 'Inga patienter matchar sökningen.',
+      noFlag: '–',
+      registryOnly: 'Inte inskriven: ingen hemmiljö på kartan.',
+    },
     detail: {
       address: 'Adress',
       team: 'Team',
@@ -510,12 +530,16 @@ export type Vocab = typeof sv;
 // English. Proper nouns, ward names, abbreviations and the region's legal terms stay Swedish (DESIGN-LANG.md § 4).
 export const en: Vocab = {
   MODULES: {
+    overview: 'Overview',
     home: 'Hospital at Home',
     incident: 'Incident',
+    dependencies: 'Dependencies',
     patients: 'Patients',
     activities: 'Activities',
     planning: 'Planning',
+    capacity: 'Capacity',
     employees: 'Employees',
+    equipment: 'Equipment',
     reporting: 'Reporting',
   },
 
@@ -622,6 +646,7 @@ export const en: Vocab = {
     homeEndedExpected: 'Disruption ended (expected time reached)',
     homeClockAdvanced: 'Advanced the clock',
     homeClockDetail: '+{n} min',
+    homeClick: 'Clicked the button',
     homeSources: { map: 'from the map', preset: 'from a preset', message: 'from a message', hypothesis: 'from a suspected disruption', panel: 'from the panel' },
     homeHeatOn: 'Started a heatwave in',
     homeHeatOff: 'Ended the heatwave in',
@@ -731,7 +756,22 @@ export const en: Vocab = {
       status: { planned: 'Planned', moved: 'Moved', cancelled: 'Cancelled', done: 'Done' },
       from: 'from {team}',
     },
-    patientsPage: { title: 'Patients ({n})', select: 'Select a patient in the list to see details and actions.' },
+    patientsPage: {
+      title: 'Patients ({n})',
+      select: 'Select a patient in the list to see details and actions.',
+      search: 'Search for patient',
+      register: 'Register patient',
+      dayOverview: 'Show daily overview',
+      clicked: 'Clicked',
+      tabs: { label: 'Patient status', assessment: 'Under assessment', enrolled: 'Enrolled', paused: 'Paused', discharged: 'Discharged', all: 'All' },
+      columns: { disruption: 'Disruption', familyName: 'Family name', givenName: 'Given name', personalNumber: 'Personal number', type: 'Patient type', area: 'Area', responsible: 'Responsible', enrolled: 'Enrolled', plannedDischarge: 'Planned discharge', app: 'Patient app', lastContact: 'Last contact' },
+      type: 'Hospital at home',
+      appIn: 'Logged in',
+      appOut: 'Not logged in',
+      noRows: 'No patients match the search.',
+      noFlag: '–',
+      registryOnly: 'Not enrolled: no home on the map.',
+    },
     detail: {
       address: 'Address',
       team: 'Team',
@@ -1026,16 +1066,20 @@ export interface ModuleDef {
   path: string;
 }
 export const MODULE_DEFS: ModuleDef[] = [
+  { key: 'overview', path: '/overview' },
   { key: 'home', path: '/home' },
   { key: 'incident', path: '/incident' },
+  { key: 'dependencies', path: '/dependencies' },
 ];
 
-/** The Medoma platform modules (SPEC.md § 2): the nav's tabs in normal operation. */
+/** The seven Medoma platform modules (SPEC.md § 2), in the platform's order: the nav's tabs in normal operation. */
 export const PLATFORM_DEFS: ModuleDef[] = [
   { key: 'patients', path: '/patients' },
   { key: 'activities', path: '/activities' },
   { key: 'planning', path: '/planning' },
+  { key: 'capacity', path: '/capacity' },
   { key: 'employees', path: '/employees' },
+  { key: 'equipment', path: '/equipment' },
   { key: 'reporting', path: '/reporting' },
 ];
 

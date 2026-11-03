@@ -19,7 +19,7 @@ export default defineConfig(({ command }) => ({
     },
   },
   test: {
-    include: ['src/**/*.test.ts'],
+    include: ['src/**/*.test.{ts,tsx}'],
     environment: 'node',
   },
 }));

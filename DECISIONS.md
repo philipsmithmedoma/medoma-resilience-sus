@@ -39,3 +39,15 @@ Date: 2026-11-03.
 22. *Bulk contact* skips patients whose zone is out of contact (a phone call cannot reach them); the panel proposes Besök inom 2 h or Ta in for them (addendum 4).
 23. *DATA § 5 sources.* The prompt names the sources for the equipment and the mobile network but gives no dates or links; they are listed as S-E1…S-E6 with what they were cited for, `reported`, and the section says that this build did not re-read them. The 6 h and 12 h heat thresholds are marked `estimate`.
 24. *Malmö grid owner.* The notice for the power outage in Rosengård names "Elnätsägaren" because DATA.md cannot establish whether E.ON or Kraftringen owns the grid there (the prompt's own fallback).
+
+## Navigation and modes (batch 3)
+
+Date: 2026-11-03.
+
+25. *Branches.* The prompt says to build batches 1–6 "on main (the repository was empty, no PR needed for batch 1) and thereafter on the branch center-build with a PR against main". Batch 1 went to `main` as asked; batch 2 was also committed to `main` before the branch was made (the sentence was read as batches on main while the repository had nothing to protect). From batch 3 the work is on `center-build`; the pull request therefore shows batches 3–6 and its description carries the six checklists. Rejected: rewriting `main` after the push.
+26. *Nav width.* At 1 280 px the seven platform tabs plus the "Beredskap" button overflowed by 12 px in Swedish. The three decorative icons (chat, support, documentation) are shown from 1 400 px only; nothing else changed. Both modes fit at 1 280 px in both languages (checked in the running app).
+27. *Preparedness tabs.* The prompt's bunt 3 names Översikt, Sjukhus hemma and Incident; addendum 5 adds the page Beroenden "in preparedness mode", so it is a fourth tab after Incident. The platform entries (all seven) are in the menu "Medoma" in that mode.
+28. *Unit selector label* shows the pack's scope name ("SUS", "Lund", "Malmö", "Karolinska", "Solna", "Huddinge"), as the platform shows the unit's name.
+29. *Stand-in pages.* `/overview` and `/dependencies` exist from this batch so that the root route and the navigation work; they carry the stub sentence until batch 4 builds them. `/capacity` and `/equipment` are stubs until batch 4 as well (addendum 1 makes them stubs; addendum 2 and 3 make them real).
+30. *Patient list.* "Patientapp" shows "Ej inloggad" (muted) for the 40 % who are not logged in; the prompt names only "Inloggad". Non-enrolled rows (assessment, paused, discharged) are not clickable: they have no home on the map and no detail pane; their hover title says so. The detail pane opens beside the table (420 px), not instead of it. The tab row has no horizontal scroll and no sort controls (the prompt does not ask for sorting); rows are sorted by family and given name. In preparedness mode the table also gets the column "Senast kontakt" (addendum 6) after "Patientapp".
+31. *jsdom.* The nav and the patient page are tested by rendering them in jsdom (`jsdom`, `@testing-library/react` as dev dependencies); server rendering cannot see store changes. Test files may be `.test.tsx`.

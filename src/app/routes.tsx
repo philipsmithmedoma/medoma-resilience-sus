@@ -1,6 +1,8 @@
 import type { ReactElement } from 'react';
 import { IncidentPage } from '@/modules/incident/IncidentPage';
 import { ChannelPage } from '@/modules/incident/ChannelPage';
+import { OverviewPage } from '@/modules/overview/OverviewPage';
+import { DependenciesPage } from '@/modules/dependencies/DependenciesPage';
 import { HomePage } from '@/modules/home/HomePage';
 import { CallListPage } from '@/modules/home/CallListPage';
 import { PlanningPage } from '@/modules/home/PlanningPage';
@@ -18,6 +20,8 @@ export interface RouteDef {
 export const routes: RouteDef[] = [
   // The root decides by the preparedness state: the first preparedness page in preparedness mode, Patienter otherwise.
   { path: '/', element: <RootRedirect /> },
+  { path: '/overview', element: <OverviewPage /> },
+  { path: '/dependencies', element: <DependenciesPage /> },
   { path: '/home', element: <HomePage /> },
   { path: '/home/ringlista', element: <CallListPage /> },
   { path: '/incident', element: <IncidentPage /> },

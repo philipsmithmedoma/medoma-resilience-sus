@@ -136,16 +136,16 @@ export function Nav() {
         {active ? <Indicator /> : <EnterButton />}
       </nav>
       <div className="ml-auto flex shrink-0 items-center gap-1 pl-2 group-data-[prep=true]:gap-0 group-data-[prep=true]:pl-1">
-        {/* The decorative icons only in normal operation, where there is room; preparedness mode needs the width. */}
+        {/* The decorative icons only in normal operation and only from 1400 px: the seven platform tabs need the width at 1280 px. */}
         {!active ? (
           <>
-            <span title={t('LABELS.chat')} className="text-text">
+            <span title={t('LABELS.chat')} className="hidden text-text min-[1400px]:inline">
               <MessageSquareIcon className="size-5" strokeWidth={1.5} aria-hidden />
             </span>
-            <span title={t('LABELS.support')} className="text-text">
+            <span title={t('LABELS.support')} className="hidden text-text min-[1400px]:inline">
               <HeadphonesIcon className="size-5" strokeWidth={1.5} aria-hidden />
             </span>
-            <span title={t('LABELS.documentation')} className="text-text">
+            <span title={t('LABELS.documentation')} className="hidden text-text min-[1400px]:inline">
               <BookOpenIcon className="size-5" strokeWidth={1.5} aria-hidden />
             </span>
           </>
