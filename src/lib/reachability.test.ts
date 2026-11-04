@@ -130,6 +130,26 @@ describe('impact on the real graph (SPEC.md § 12.4)', () => {
     expect(r.summary.affected).toBe(r.rows.filter((x) => x.affected).length);
   });
 
+  it('gives every delayed patient extraKm = the shortest path now minus the baseline, and the summary the median and the maximum', () => {
+    const state = dis({ blockedRoads: set('Centralbron') });
+    const r = impact(pack, state, SOLNA, model);
+    const delayed = r.rows.filter((x) => x.delayed);
+    expect(delayed.length).toBeGreaterThan(0);
+    const base = model.baseline(SOLNA);
+    for (const row of delayed) {
+      expect(Number.isInteger(row.extraKm)).toBe(true);
+      expect(row.extraKm!).toBeGreaterThanOrEqual(0);
+      const snap = model.patients.get(row.patient.id)!;
+      const now = impact(pack, state, SOLNA, model); // same state: the distance now is what the row was built from
+      expect(now.rows.find((x) => x.patient.id === row.patient.id)!.extraKm).toBe(row.extraKm);
+      expect(base[snap.vertex]).toBeLessThan(Infinity);
+    }
+    const km = delayed.map((x) => x.extraKm!).sort((a, b) => a - b);
+    expect(r.summary.maxExtraKm).toBe(km[km.length - 1]);
+    expect(r.summary.medianExtraKm).toBe(km.length % 2 ? km[km.length >> 1] : Math.round((km[(km.length >> 1) - 1] + km[km.length >> 1]) / 2));
+    expect(impact(pack, dis({}), SOLNA, model).summary).toMatchObject({ medianExtraKm: null, maxExtraKm: null });
+  });
+
   it('uses both sites when the scope yields none, and answers without a model for power and water only', () => {
     const d = dis({ blockedRoads: set('Essingeleden') });
     expect(impact(pack, d, [], model).summary).toEqual(impact(pack, d, BOTH, model).summary);

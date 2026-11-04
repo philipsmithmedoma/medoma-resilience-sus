@@ -427,7 +427,7 @@ export const sv = {
       phonePlaceholder: '0XX-XXX XX XX',
       none: 'Inget',
     },
-    disruption: { road: 'Vägavstängning: {name}', power: 'Elavbrott: {name}', water: 'Kokningsrekommendation: {name}', tele: 'Telestörning: {name}', heat: 'Värmebölja: {name}', cold: 'Kyla: {name}', supplier: 'Leverantörsstörning: {name}' },
+    disruption: { roadAt: '{name} vid {place}', road: 'Vägavstängning: {name}', power: 'Elavbrott: {name}', water: 'Kokningsrekommendation: {name}', tele: 'Telestörning: {name}', heat: 'Värmebölja: {name}', cold: 'Kyla: {name}', supplier: 'Leverantörsstörning: {name}' },
     time: {
       startedAt: 'från {hhmm}',
       endsAbout: 'slut cirka {hhmm}',
@@ -514,6 +514,7 @@ export const sv = {
       reasons: { unreachable: 'Nås inte med bil', detour: 'Nås via omväg', power: 'Utan el', water: 'Kokningsrekommendation', noContact: 'Utan kontakt', heat: 'värme', cold: 'kallt hem', noPump: 'pumpbyte saknas', noRoad: 'Ingen väg inom 1,5 km' },
       grounds: { power: 'Elkritisk', monitoring: 'Övervakningskritisk', heat: 'Värmekritisk', cold: 'Kyla, 80 år eller äldre', pump: 'Pumpbyte saknas' },
       prioritise: 'Prioritera',
+      plusKm: '+{n} km',
       groups: { affected: 'Påverkade ({n})', detour: 'Nås via omväg ({n})', others: 'Övriga ({n})' },
     },
     chain: {
@@ -1043,7 +1044,7 @@ export const en: Vocab = {
       phonePlaceholder: '0XX-XXX XX XX',
       none: 'None',
     },
-    disruption: { road: 'Road closure: {name}', power: 'Power outage: {name}', water: 'Boil-water advisory: {name}', tele: 'Tele disturbance: {name}', heat: 'Heatwave: {name}', cold: 'Cold: {name}', supplier: 'Supplier disruption: {name}' },
+    disruption: { roadAt: '{name} near {place}', road: 'Road closure: {name}', power: 'Power outage: {name}', water: 'Boil-water advisory: {name}', tele: 'Tele disturbance: {name}', heat: 'Heatwave: {name}', cold: 'Cold: {name}', supplier: 'Supplier disruption: {name}' },
     time: {
       startedAt: 'from {hhmm}',
       endsAbout: 'ends about {hhmm}',
@@ -1130,6 +1131,7 @@ export const en: Vocab = {
       reasons: { unreachable: 'Cannot be reached by car', detour: 'Reached via detour', power: 'Without power', water: 'Boil-water advisory', noContact: 'Out of contact', heat: 'heat', cold: 'cold home', noPump: 'no replacement pump', noRoad: 'No road within 1.5 km' },
       grounds: { power: 'Power-critical', monitoring: 'Monitoring-critical', heat: 'Heat-critical', cold: 'Cold, 80 or older', pump: 'No replacement pump' },
       prioritise: 'Prioritise',
+      plusKm: '+{n} km',
       groups: { affected: 'Affected ({n})', detour: 'Reached via detour ({n})', others: 'Others ({n})' },
     },
     chain: {

@@ -29,6 +29,7 @@ export function deriveSets(records: readonly HomeDisruption[]): DerivedSets {
     if (!isActive(d)) continue;
     if (d.kind === 'road') {
       if (d.targetKind === 'way') sets.blockedWays.add(d.target);
+      else if (d.targetKind === 'ways') for (const id of d.target.split(',')) sets.blockedWays.add(id);
       else if (d.targetKind === 'node') sets.blockedNodes.add(d.target);
       else sets.blockedRoads.add(d.target);
     } else if (d.kind === 'power') {

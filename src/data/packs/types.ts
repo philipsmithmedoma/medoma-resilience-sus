@@ -288,8 +288,8 @@ export interface HomeDisruptionPreset {
 /** A disruption as a record in time (SPEC.md § 13.2); the blocked and outage sets are derived from the active ones. */
 export type HomeDisruptionKind = 'road' | 'power' | 'water' | 'tele' | 'heat' | 'cold' | 'supplier';
 export type HomeDisruptionSource = 'map' | 'preset' | 'message' | 'hypothesis' | 'panel';
-/** What `target` names: an OSM way id, a road key (`name` or `name|ref`), a road InfraNode id, a ZoneId, or the pack (a supplier). */
-export type HomeDisruptionTargetKind = 'way' | 'road' | 'node' | 'zone' | 'pack';
+/** What `target` names: an OSM way id, several OSM way ids joined by a comma (a tap on a road), a road key (`name` or `name|ref`), a road InfraNode id, a ZoneId, or the pack (a supplier). */
+export type HomeDisruptionTargetKind = 'way' | 'ways' | 'road' | 'node' | 'zone' | 'pack';
 export type HomeDisruptionEnd = 'manual' | 'expected' | 'reset' | 'replaced';
 export interface HomeDisruption {
   id: string;

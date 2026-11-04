@@ -39,7 +39,7 @@ export interface HomeOverlay {
   patientMarks?: ReadonlyMap<string, PatientMark>;
   onToggleNode?: (id: string) => void;
   /** A tap on a road segment in roads mode. */
-  onTapWay?: (props: RoadProps) => void;
+  onTapWay?: (props: RoadProps, at: { lat: number; lng: number }) => void;
   onToggleZone?: (zone: string) => void;
   /** The teams: a small square in the team's colour at each base, in every mode (SPEC.md § 14.2). */
   teams?: HomeTeam[];

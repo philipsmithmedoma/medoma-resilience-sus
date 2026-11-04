@@ -16,7 +16,7 @@ import { homeSiteName, homeSitesInScope } from '@/lib/home-sites';
 import { buildDataPack, homePackIdOf, homePacks } from './packs/home-packs';
 import { defaultScopeOf, packOfScope } from '@/lib/scope';
 import { blockedFlags, disruptionCount, impact, priorityTier } from '@/lib/reachability';
-import { waysNearPoint } from '@/lib/roadGraph';
+import { roadsAtTap, waysNearPoint } from '@/lib/roadGraph';
 import { hypotheses } from '@/lib/signal';
 
 export type HomeLayerKey = InfraLayer | 'patients' | 'tele';
@@ -80,6 +80,8 @@ export interface HomeActions {
   setHomeMode: (mode: HomeMode) => void;
   toggleBlockedNode: (id: string) => void;
   toggleBlockedWay: (id: string) => void;
+  /** A tap on a road segment (SPEC.md § 6.1): closes every way that shares the tapped way's name or ref within 250 m of the point, or opens them if the tapped way is closed. */
+  closeRoadAt: (props: { id: number; name: string | null; ref: string | null }, at: { lat: number; lng: number }) => void;
   toggleBlockedRoad: (key: string) => void;
   setWholeRoad: (on: boolean) => void;
   /** The geometry has loaded; `infraNodes` are the pack's nodes with their OpenStreetMap positions. */
@@ -363,6 +365,30 @@ export const createHomeSlice: StateCreator<AppStore, [], [], HomeActions> = (set
     toggleBlockedWay: (id) => {
             const blocking = toggleRecord({ kind: 'road', target: id, targetKind: 'way', source: 'map' });
       logHome(blocking ? t('AUDIT.homeBlocked') : t('AUDIT.homeUnblocked'), wayLabel(id), detail());
+      updateCutoff();
+      reconcile();
+    },
+
+    closeRoadAt: (props, at) => {
+      const model = getRoadModel();
+      const { pack, home } = get();
+      const open = home.disruptions.find((d) => d.endedAt === null && d.kind === 'road' && (d.targetKind === 'ways' ? d.target.split(',').includes(String(props.id)) : d.targetKind === 'way' && d.target === String(props.id)));
+      if (open) {
+        endRecord((d) => d === open, 'manual');
+        logHome(t('AUDIT.homeUnblocked'), lt(open.label), detail());
+        updateCutoff();
+        reconcile();
+        return;
+      }
+      const ids = model ? roadsAtTap(model.graph, props, at.lat, at.lng) : [props.id];
+      // "<name> vid <nearest locality or zone>": the road's name (or ref) and the zone whose centre is nearest the tap.
+      const nearest = [...pack.homeZones].sort((a, b) => haversineM(at.lat, at.lng, a.lat, a.lng) - haversineM(at.lat, at.lng, b.lat, b.lng))[0];
+      const roadName = props.name ?? props.ref ?? `OSM ${props.id}`;
+      const label: LocalizedText = nearest
+        ? { sv: t('HOME.disruption.roadAt', { name: roadName, place: nearest.name.sv }, 'sv'), en: t('HOME.disruption.roadAt', { name: roadName, place: nearest.name.en }, 'en') }
+        : same(roadName);
+      addRecord({ kind: 'road', target: ids.join(','), targetKind: 'ways', source: 'map', label });
+      logHome(t('AUDIT.homeBlocked'), lt(label), detail());
       updateCutoff();
       reconcile();
     },
