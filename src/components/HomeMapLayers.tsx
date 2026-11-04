@@ -1,11 +1,11 @@
-import { Fragment, useMemo } from 'react';
+import { Fragment, useMemo, useState } from 'react';
 import L from 'leaflet';
-import { Circle, CircleMarker, Marker, Polyline, Tooltip, useMapEvents } from 'react-leaflet';
+import { Circle, CircleMarker, Marker, Polyline, Tooltip, useMap, useMapEvents } from 'react-leaflet';
 import type { CareSite, HomePatient, HomeTeam, HomeZone, InfraLayer, InfraLink, InfraNode } from '@/data/types';
 import type { HomeLayerKey, HomeMode } from '@/data/store-home';
 import { lt, t, tm } from '@/lib/i18n';
 import { isSchematic, linkedVertices, offmapEnd, offmapRotation, offmapSlots, vertexPositions } from '@/lib/home-geo';
-import { cssColor } from '@/lib/theme';
+import { cssColor, useTheme } from '@/lib/theme';
 import type { RoadCollection, RoadProps } from '@/lib/roadGraph';
 import { RoadsLayer } from './RoadsLayer';
 import type { PowerLine } from '@/lib/osmNodes';
@@ -119,6 +119,17 @@ const ZONE_LABEL: Record<string, { direction: 'left' | 'right' | 'top' | 'bottom
 };
 const DASH_SCHEMATIC = '8 6';
 const DASH_DOTTED = '2 6';
+/** Labels of the power lines show from this zoom level. */
+export const LABEL_ZOOM = 11;
+const cssDash = (water: boolean, schematic: boolean, dotted: boolean): string | undefined => (water ? '1 4' : !schematic ? undefined : dotted ? DASH_DOTTED : DASH_SCHEMATIC);
+
+/** The map's zoom level, kept in state so that labels can appear and go with it. */
+function useMapZoom(): number {
+  const map = useMap();
+  const [zoom, setZoom] = useState(map.getZoom());
+  useMapEvents({ zoomend: () => setZoom(map.getZoom()) });
+  return zoom;
+}
 
 const iconCache = new Map<string, L.DivIcon>();
 
@@ -187,6 +198,8 @@ export function HomeMapLayers({ overlay, sites }: HomeMapLayersProps) {
   // With a node selected, everything that is not linked to it is dimmed (SPEC.md § 11.5).
   const linked = useMemo(() => (selectedId ? linkedVertices(selectedId, infraLinks) : null), [selectedId, infraLinks]);
   const kinds = tm('HOME.kinds');
+  const dark = useTheme((s) => s.theme) === 'dark';
+  const zoom = useMapZoom();
   const NEUTRAL = cssColor('--color-text-secondary');
   const MUTED = cssColor('--color-text-muted');
   const SURFACE = cssColor('--color-surface');
@@ -206,13 +219,21 @@ export function HomeMapLayers({ overlay, sites }: HomeMapLayersProps) {
 
       {layers.el
         ? powerLines.map((l) => (
-            <Polyline key={`pl-${l.id}`} positions={l.positions} pathOptions={{ color: cssColor(LAYER_TOKEN.el), weight: l.highest >= 400 ? 3 : 2, opacity: linked !== null ? 0.3 : 0.9 }} interactive={false}>
-              {l.label ? (
-                <Tooltip permanent className="home-map-label">
-                  {l.label}
-                </Tooltip>
+            <Fragment key={`pl-${l.id}`}>
+              {/* 400 kV in yellow, 220 kV thinner in a muted tone; one label per connected line, from zoom level 11 (SPEC.md § 5). */}
+              <Polyline
+                positions={l.segments}
+                pathOptions={{ color: cssColor(l.highest >= 400 ? '--color-power-400' : '--color-text-muted'), weight: l.highest >= 400 ? 3 : 1.5, opacity: linked !== null ? 0.3 : 0.9 }}
+                interactive={false}
+              />
+              {l.label && zoom >= LABEL_ZOOM ? (
+                <CircleMarker center={l.labelAt} radius={0} pathOptions={{ stroke: false, fillOpacity: 0 }} interactive={false}>
+                  <Tooltip permanent direction="top" className="home-map-label">
+                    {l.label}
+                  </Tooltip>
+                </CircleMarker>
               ) : null}
-            </Polyline>
+            </Fragment>
           ))
         : null}
 
@@ -244,9 +265,11 @@ export function HomeMapLayers({ overlay, sites }: HomeMapLayersProps) {
           const colour = cssColor(LAYER_TOKEN[l.layer]);
           const label = lt(l.label);
           const schematic = isSchematic(l);
-          const dashArray = !schematic ? undefined : l.style === 'dotted' ? DASH_DOTTED : DASH_SCHEMATIC;
-          const weight = 2;
-          const opacity = linkDim(l) ? 0.15 : l.style === 'street' ? 0.7 : 0.9;
+          const dashArray = cssDash(l.layer === 'water', schematic, l.style === 'dotted');
+          // Water links: 1 px, dotted, 50 % opacity, no labels (SPEC.md § 5).
+          const water = l.layer === 'water';
+          const weight = water ? 1 : 2;
+          const opacity = linkDim(l) ? 0.15 : water ? 0.5 : l.style === 'street' ? 0.7 : 0.9;
           const from = positions.get(l.a);
           if (!from) return null;
           if (l.offmap) {
@@ -268,7 +291,7 @@ export function HomeMapLayers({ overlay, sites }: HomeMapLayersProps) {
           if (!to) return null;
           return (
             <Polyline key={l.id} positions={[from, to]} pathOptions={{ color: colour, weight, dashArray, opacity }}>
-              {label ? <Tooltip sticky>{label}</Tooltip> : null}
+              {label && !water ? <Tooltip sticky>{label}</Tooltip> : null}
             </Polyline>
           );
         })}
@@ -357,7 +380,8 @@ export function HomeMapLayers({ overlay, sites }: HomeMapLayersProps) {
                 <CircleMarker key={p.id} center={[p.lat, p.lng]} radius={3} pathOptions={{ stroke: false, fillColor: mark === 'affected' ? DANGER : AMBER, fillOpacity: 0.95 }} interactive={false} />
               );
             }
-            return <CircleMarker key={p.id} center={[p.lat, p.lng]} radius={2} pathOptions={{ stroke: false, fillColor: MUTED, fillOpacity: vertexDim(`zone:${p.zone}`) ? 0.1 : 0.3 }} interactive={false} />;
+            // Patient dots: 3 px; neutral at 30 % opacity, in dark mode light grey at 70 % (SPEC.md § 5).
+            return <CircleMarker key={p.id} center={[p.lat, p.lng]} radius={3} pathOptions={{ stroke: false, fillColor: dark ? NEUTRAL : MUTED, fillOpacity: vertexDim(`zone:${p.zone}`) ? 0.1 : dark ? 0.7 : 0.3 }} interactive={false} />;
           })
         : null}
     </>

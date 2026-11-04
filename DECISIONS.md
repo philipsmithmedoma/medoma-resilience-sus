@@ -71,3 +71,14 @@ Date: 2026-11-03.
 39. *"Within 250 m"* is measured from the tapped point to the road graph's edges (straight segments between graph vertices), not to the full way geometry; a way that is long between two vertices is found when any part of an edge passes within 250 m. The rule matches by name or by ref (a differing ref with the same name is a separate road only for "Block whole road", as in the source).
 40. *Label.* "<name> vid <place>", where the name is the way's name, else its ref, else "OSM <id>", and the place is the zone whose centre is nearest the tap (the pack has no list of localities, only zones).
 41. *Detour.* `extraKm` is the whole-kilometre difference between the shortest path now and the baseline from the sites in scope; the row shows "+N km" after "Nås via omväg" and the summary line "Omväg: median N km, högst M km". The median of an even number is the rounded mean of the two middle values.
+
+## Map, polish and screenshots (batch 6)
+
+Date: 2026-11-03.
+
+42. *Start view.* The map fits the box around every zone circle and the sites of the selected pack (24 px padding); infrastructure nodes, markers and arrow tips outside that are left to the user. Switching pack fits again.
+43. *Power lines.* Ways of `power.json` with at least 220 kV are merged into one line when they share an end point and a voltage tier; the one label ("400 kV", "220 kV", "400/220 kV") sits on the vertex nearest the centroid of the line (a vertex of the line, so it is always on it) and shows from zoom level 11. 70 kV and lower are not drawn. 400 kV uses the new token `--color-power-400` (yellow; one value per theme); 220 kV is 1.5 px in `--color-text-muted`. Rejected: labelling every OSM way (a line is dozens of ways).
+44. *Water links* are 1 px, dotted (`1 4`), 50 % opacity and have no tooltip or label. *Patient dots* are 3 px; neutral at 30 % opacity in light mode, `--color-text-secondary` (light grey) at 70 % in dark mode.
+45. *Indicator contrast.* White on `--color-red` (`#e33026`) is 4.45:1, below the 4.5:1 floor, so the indicator uses the new token `--color-indicator-bg` (`#c42a21`, 5.7:1) in both themes; a unit test computes the ratio from the stylesheet.
+46. *Screenshots.* Taken with Playwright at 1280 × 800, tiles blocked ("utan kartplattor"), at the moment the story reaches +2 h of a power outage in Rosengård and Dalby (Översikt, Sjukhus hemma, Kapacitet, Beroenden). Beroenden is shown quiet and disrupted: the prompt asks for it "in both modes", but the page only exists in preparedness mode, so the two states of the page stand for the two modes. The source's screenshots under `docs/screenshots/home` and `ops` are removed (they show the Karolinska-only UI); `docs/screenshots/batch5` was never copied.
+47. *Language of README.* The README is Swedish (the presenter's script), as in the source; the other documents are English.

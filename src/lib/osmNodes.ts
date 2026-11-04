@@ -52,11 +52,15 @@ export function applyOsmNodes(base: InfraNode[], geo: Pick<GeoData, 'power' | 'w
 }
 
 export interface PowerLine {
+  /** The id of the first way of the connected line. */
   id: number;
   /** "400 kV", "220 kV" or "400/220 kV". */
   label: string;
   highest: number; // kV, for the line weight
-  positions: Array<[number, number]>; // [lat, lng]
+  /** One polyline per OSM way of the connected line, each [lat, lng][]. */
+  segments: Array<Array<[number, number]>>;
+  /** Where the one label of the line sits: the vertex nearest the middle of the connected line. */
+  labelAt: [number, number];
 }
 
 /** "400000;220000" → "400/220 kV". */
@@ -68,16 +72,42 @@ export function voltageLabel(voltage: string | null | undefined): string {
   return kv.length ? `${kv.join('/')} kV` : '';
 }
 
-/** 400 and 220 kV lines of power.json as polylines with a voltage label. */
+const voltages = (v: string | null | undefined): number[] => (v ?? '').split(';').map((x) => Number(x.trim()) / 1000).filter((x) => Number.isFinite(x) && x > 0);
+
+/** Lines drawn on the map: 400 kV and 220 kV; 70 kV and lower are not drawn (SPEC.md § 5). */
+export const DRAWN_KV = 220;
+
+/**
+ * 400 and 220 kV lines of power.json, connected ways merged into one line each (ways that share an end point and a voltage tier),
+ * with one label per connected line at its middle. 70 kV lines and anything below 220 kV are left out.
+ */
 export function powerLines(geo: Pick<GeoData, 'power'>): PowerLine[] {
-  return geo.power.features
+  const ways = geo.power.features
     .filter((f): f is LineFeature => f.geometry.type === 'LineString' && f.properties.power === 'line')
-    .map((f) => ({
-      id: f.properties.id,
-      label: voltageLabel(f.properties.voltage),
-      highest: Math.max(0, ...(f.properties.voltage ?? '').split(';').map((v) => Number(v) / 1000).filter(Number.isFinite)),
-      positions: f.geometry.coordinates.map(([lng, lat]) => [lat, lng] as [number, number]),
-    }));
+    .map((f) => ({ id: f.properties.id, highest: Math.max(0, ...voltages(f.properties.voltage)), label: voltageLabel(f.properties.voltage), points: f.geometry.coordinates.map(([lng, lat]) => [lat, lng] as [number, number]) }))
+    .filter((w) => w.highest >= DRAWN_KV && w.points.length >= 2);
+  const parent = ways.map((_, i) => i);
+  const find = (i: number): number => (parent[i] === i ? i : (parent[i] = find(parent[i])));
+  const key = (p: [number, number]) => `${p[0].toFixed(4)},${p[1].toFixed(4)}`;
+  const byEnd = new Map<string, number>();
+  ways.forEach((w, i) => {
+    for (const end of [w.points[0], w.points[w.points.length - 1]]) {
+      const k = `${w.highest}:${key(end)}`;
+      const other = byEnd.get(k);
+      if (other === undefined) byEnd.set(k, i);
+      else parent[find(i)] = find(other);
+    }
+  });
+  const groups = new Map<number, number[]>();
+  ways.forEach((_, i) => groups.set(find(i), [...(groups.get(find(i)) ?? []), i]));
+  return [...groups.values()].map((members) => {
+    const ms = members.map((i) => ways[i]);
+    const all = ms.flatMap((w) => w.points);
+    const cLat = all.reduce((n, p) => n + p[0], 0) / all.length;
+    const cLng = all.reduce((n, p) => n + p[1], 0) / all.length;
+    const labelAt = all.reduce((best, p) => (Math.hypot(p[0] - cLat, p[1] - cLng) < Math.hypot(best[0] - cLat, best[1] - cLng) ? p : best), all[0]);
+    return { id: ms[0].id, label: ms[0].label, highest: ms[0].highest, segments: ms.map((w) => w.points), labelAt };
+  });
 }
 
 const applied = new Map<HomePackId, AppliedNodes>();

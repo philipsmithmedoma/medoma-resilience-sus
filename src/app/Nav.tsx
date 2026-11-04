@@ -83,7 +83,7 @@ function Indicator() {
     if (isPreparednessRoute(pathname)) navigate(CLOSE_FALLBACK);
   };
   return (
-    <span role="status" className="inline-flex h-7 items-center gap-0.5 rounded-md bg-red pr-0.5 pl-2 text-[13px] leading-[18px] font-medium whitespace-nowrap text-primary-foreground">
+    <span role="status" className="inline-flex h-7 items-center gap-0.5 rounded-md bg-indicator-bg pr-0.5 pl-2 text-[13px] leading-[18px] font-medium whitespace-nowrap text-primary-foreground">
       {t('PREP.active')}
       <Tooltip>
         <TooltipTrigger asChild>

@@ -22,14 +22,20 @@ Appen gör inga nätverksanrop utöver kartplattorna från OpenStreetMap. Kartge
 
 ## Demoberättelsen (SUS)
 
-1. Öppna Medoma Center. Du är i vanlig drift: Patienter, Aktiviteter, Planering, Kapacitet, Medarbetare, Utrustning, Rapportering. Enhetsväljaren längst till vänster visar SUS.
-2. Tryck **Beredskap**. Läget byter navigering: Översikt, Sjukhus hemma, Incident, Beroenden.
-3. **Översikt**: patienter hemma, påverkade nu, onåbara, batteri slut inom 2 h, aktiva störningar och de tre realtidskorten. Allt är illustrativt och märkt så.
-4. **Sjukhus hemma**: kartan visar Lund och Malmö med patienterna. Öppna fliken Meddelanden, välj Trafikverkets notis om Inre Ringvägen och **skapa vägstörningen från meddelandet**. Patienter som nu bara nås via omväg får "+N km".
-5. Tryck **+1 h** två gånger. Mobilnätet faller i urbana zoner efter 1 h och i övriga efter 4 h; patienter med kontinuerlig övervakning blir "utan kontakt" och listan sorterar om. Öppna **Kapacitet** och se hur dagens pass påverkas. Öppna **Beroenden** och se vad som faller inom timmen.
-6. **Kontakta alla kritiska**. Där telefon inte går fram föreslår panelen Besök inom 2 h eller Ta in.
+1. Öppna Medoma Center. Du är i vanlig drift: Patienter, Aktiviteter, Planering, Kapacitet, Medarbetare, Utrustning, Rapportering. Enhetsväljaren längst till vänster visar SUS (Lund och Malmö).
+2. Tryck **Beredskap**. Läget byter navigering: Översikt, Sjukhus hemma, Incident, Beroenden; plattformens sidor ligger i menyn Medoma.
+3. **Översikt**: tre realtidskort (utan kontakt nu, kortaste hubbatteri, nästa pumpbyte), patienter hemma, påverkade nu, onåbara, batteri slut inom 2 h, aktiva störningar och incidentstatus. Allt är illustrativt och märkt så; realtidsfälten är simulerade.
+4. **Sjukhus hemma**: kartan visar Lund och Malmö med patienterna. Öppna fliken Från meddelande, välj Trafikverkets notis om Inre Ringvägen och **skapa vägstörningen från meddelandet**. Eller tryck på en vägsträcka i Stäng vägar: samma väg stängs inom 250 m åt båda hållen. Patienter som nu bara nås via omväg får "+N km".
+5. Tryck **+1 h** två gånger. Mobilnätet faller i urbana zoner efter 1 h och i övriga efter 4 h; patienter med kontinuerlig övervakning blir utan kontakt och listan sorterar om (sepsis före rytm före andning, sedan elkritiska). Fäll ut en rad och läs förklaringskedjan. Öppna **Kapacitet** och se hur dagens pass påverkas. Öppna **Beroenden** och se vad som faller inom timmen.
+6. **Kontakta alla kritiska**. Där telefon inte går fram föreslår panelen Besök inom 2 h eller Ta in. Under Demo kan ett elavbrott utan registrering startas: panelen föreslår "Misstänkt störning" när patienterna tystnar.
 7. **Planering**: flytta ett besök till en ledig tid hos samma team.
 8. Markera en patient **Ta in**. Patienten hamnar i listan Överlämningar till sjukhus på Översikt; tryck **Exportera** och få JSON-filen som sjukhusprodukten läser.
-9. Byt paket i läget Sjukhus hemma (eller i enhetsväljaren) till **Karolinska**: andra patienter, andra broar, samma produkt.
+9. Byt paket med paketbrytaren i läget Sjukhus hemma till **Karolinska**: andra patienter, andra broar, samma produkt. Byt tillbaka via enhetsväljaren.
 
-Skärmbilder: `docs/screenshots/` (utan kartplattor, som är utanför appens egen data).
+## Skärmbilder
+
+`docs/screenshots/normal/` (Patienter, Planering, Kapacitet i vanlig drift) och `docs/screenshots/prep/` (Översikt, Sjukhus hemma, Incident, Kapacitet och Beroenden i beredskapsläget, Beroenden både utan och med störning). Varje sida finns på svenska och engelska, ljust och mörkt. **Kartplattorna från OpenStreetMap är bortblockerade i skärmbilderna** (kartan visar bara appens egna lager på tom bakgrund); i appen laddas de. Bilderna är tagna mot fixturgeometrin för SUS (se nedan).
+
+## Datafilernas status
+
+Karolinska har hämtad OpenStreetMap-geometri (`src/data/packs/geo/karolinska/`). **SUS har fixtur tills `fetch-osm.yml` har körts**: `src/data/packs/geo/sus/fixture*.json` är handgjorda med samma schema och de verkliga vägnamnen, siffrorna är påhittade. Kör workflowen (Actions, Fetch OpenStreetMap data, paket `sus`) så öppnas en PR med de riktiga filerna, och testerna körs då mot dem.
