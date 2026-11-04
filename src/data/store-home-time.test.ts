@@ -1,4 +1,5 @@
 import { resetStoreTo } from '@/test/packs';
+import { HOJE_A, nearestE22 } from '@/test/roads';
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { useStore } from './store';
 import { getRoadModel, loadRoadModel } from '@/lib/roadModel';
@@ -69,7 +70,7 @@ describe('disruptions in time (SPEC.md § 13.2)', () => {
     expect(disruptionCount(s().home)).toBe(0);
     expect(s().home.disruptions[0].endReason).toBe('manual');
     s().toggleBlockedNode('r-lund-n');
-    s().toggleBlockedWay(String(getRoadModel()!.graph.ways.find((w) => w.name === 'E22')!.id));
+    s().toggleBlockedWay(String(nearestE22(getRoadModel()!.graph, HOJE_A).props.id));
     s().toggleBlockedRoad('Inre Ringvägen');
     expect(s().home.disruptions.filter((d) => d.endedAt === null)).toHaveLength(3);
     s().resetHomeDisruptions();

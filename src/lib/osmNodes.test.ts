@@ -64,7 +64,12 @@ describe('nodes from OpenStreetMap (SPEC.md § 12.5)', () => {
   it('keeps the estimate of a node with no match and reports it as missing', () => {
     const only = geo.power.features.filter((f) => !/hurva|sege/i.test(f.properties.name ?? ''));
     const r = applyOsmNodes(pack.infraNodes, withPower(only), null);
-    expect([...r.missing].sort()).toEqual(['e-hurva', 'e-sege']);
+    // Vombverket is matched when the water data holds it (the fixture does); the real OpenStreetMap water.json has no object named
+    // Vombverket, so there it is missing too and keeps its estimate (DECISIONS.md 63).
+    const vombInData = geo.water.features.some((f) => f.properties.name?.toLowerCase().includes('vombverket'));
+    expect([...r.missing].sort()).toEqual(vombInData ? ['e-hurva', 'e-sege'] : ['e-hurva', 'e-sege', 'w-vomb']);
+    if (vombInData) expect(r.matched).toContain('w-vomb');
+    else expect(r.nodes.find((n) => n.id === 'w-vomb')).toEqual(estimateOf('w-vomb'));
     expect(r.nodes.find((n) => n.id === 'e-hurva')).toEqual(estimateOf('e-hurva'));
     expect(r.nodes.find((n) => n.id === 'e-sege')).toEqual(estimateOf('e-sege'));
     expect(r.matched).not.toContain('e-hurva');

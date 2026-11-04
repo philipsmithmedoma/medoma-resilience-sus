@@ -1,4 +1,6 @@
 import { resetStoreTo } from '@/test/packs';
+import { HOJE_A, nearestE22 } from '@/test/roads';
+import { roadKey } from '@/lib/roadGraph';
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { useStore } from './store';
 import { NO_DISRUPTIONS, disruptionCount, impact } from '@/lib/reachability';
@@ -80,15 +82,15 @@ describe('Hospital at Home disruptions (SPEC.md § 11.5)', () => {
   it('closes one way by its OSM id and a whole road by its name, and ignores ids that are not road nodes', () => {
     const n = s().log.length;
     const g = getRoadModel()!.graph;
-    const way = g.ways.find((w) => w.name === 'E22')!;
+    const way = nearestE22(g, HOJE_A).props;
     const wayId = String(way.id);
     s().toggleBlockedWay(wayId);
     expect(s().home.blockedWays.has(wayId)).toBe(true);
-    expect(last()).toMatchObject({ action: 'Stängde', object: 'E22' });
-    const key = way.ref ? `E22|${way.ref}` : 'E22';
+    expect(last()).toMatchObject({ action: 'Stängde' });
+    const key = roadKey(way)!;
     s().toggleBlockedRoad(key);
     expect(s().home.blockedRoads.has(key)).toBe(true);
-    expect(last()).toMatchObject({ action: 'Stängde', object: 'E22' });
+    expect(last()).toMatchObject({ action: 'Stängde' });
     expect(last().detail).toMatch(/^\d+ av 200 patienter påverkade$/);
     s().toggleBlockedRoad(key);
     expect(last().action).toBe('Öppnade');
@@ -114,7 +116,7 @@ describe('Hospital at Home disruptions (SPEC.md § 11.5)', () => {
     s().resetHomeDisruptions();
     expect(s().log).toHaveLength(n);
     s().toggleBlockedNode('r-lund-n');
-    s().toggleBlockedWay(String(getRoadModel()!.graph.ways.find((w) => w.name === 'E22')!.id));
+    s().toggleBlockedWay(String(nearestE22(getRoadModel()!.graph, HOJE_A).props.id));
     s().toggleBlockedRoad('Inre Ringvägen');
     s().togglePowerOut('dalby');
     s().toggleWaterOut('malmo');
@@ -131,12 +133,14 @@ describe('Hospital at Home disruptions (SPEC.md § 11.5)', () => {
       resetStoreTo('sus');
       s().setHomeGeoReady();
       s().setScope(scope);
-      s().toggleBlockedRoad('E22');
+      s().toggleBlockedRoad(roadKey(nearestE22(getRoadModel()!.graph, HOJE_A).props)!);
       return Number(/^(\d+) /.exec(last().detail!)![1]);
     };
     const lundOnly = closeE22('suslund');
     const both = closeE22('sus');
-    expect(lundOnly).toBeGreaterThan(both); // from Lund alone Malmö is cut off by the closed E22; the Malmö site still reaches its own half
+    // From Lund alone Malmö can be cut off by the closed E22; with both sites in scope the Malmö site reaches its own half. In the real geometry the
+    // closure affects 3 patients in both scopes (DECISIONS.md 63), so the test demands only that a second site never makes it worse.
+    expect(lundOnly).toBeGreaterThanOrEqual(both);
     fixtureOnly(ctx);
     expect([lundOnly, both]).toEqual([130, 40]);
   });
