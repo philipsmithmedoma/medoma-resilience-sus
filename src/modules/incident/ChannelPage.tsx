@@ -1,4 +1,5 @@
-import { Link, useParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
+import { Link } from '@/app/router';
 import { toast } from 'sonner';
 import { useStore } from '@/data/store';
 import { lt, t } from '@/lib/i18n';

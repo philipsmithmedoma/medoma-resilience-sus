@@ -7,8 +7,8 @@ import { getRoadModel, sourceVertices, teamDistancesFrom, type RoadModel } from 
 import { batteryEmptyAt } from './disruptions';
 import { networkDownAt, realtimeOf, WARNING_MIN, type SignalState } from './signal';
 
-/** The Karolinska sites: a scope that yields none falls back to both (SPEC.md § 11.1). A pack with its own sites always passes them. */
-export const BOTH_SITES: string[] = ['solna', 'huddinge'];
+/** A scope that yields no sites falls back to every site the road model knows (SPEC.md § 4); a pack always passes its own. */
+const allSites = (model: Pick<RoadModel, 'sites'> | null): string[] => (model ? Object.keys(model.sites) : []);
 
 /** Everything that can be disrupted (SPEC.md § 11.5, § 12.3). */
 export interface Disruptions {
@@ -229,8 +229,8 @@ export function impact(
   model: RoadModel | null = getRoadModel(),
   clock: number | null = null,
 ): Impact {
-  // A scope that yields no sites uses both Karolinska sites; a pack always passes its own.
-  const sites = scopeSites.length ? scopeSites : BOTH_SITES;
+  // A scope that yields no sites uses every site of the pack; a pack always passes its own.
+  const sites = scopeSites.length ? scopeSites : allSites(model);
   const roadsClosed = state.blockedWays.size + state.blockedRoads.size + state.blockedNodes.size > 0;
   let base: Float64Array | null = null;
   let now: Float64Array | null = null;
@@ -401,7 +401,7 @@ export function explainPath(
 ): string[] | null {
   const snap = model.patients.get(patient.id);
   if (!snap || snap.unsnapped) return null;
-  const paths = dijkstra(model.graph, sourceVertices(model, scopeSites.length ? scopeSites : BOTH_SITES), blockedFlags(model, state, pack));
+  const paths = dijkstra(model.graph, sourceVertices(model, scopeSites.length ? scopeSites : allSites(model)), blockedFlags(model, state, pack));
   return Number.isFinite(paths.dist[snap.vertex]) ? pathWayNames(model.graph, paths, snap.vertex) : null;
 }
 

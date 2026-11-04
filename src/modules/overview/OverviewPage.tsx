@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { Link } from '@/app/router';
 import { toast } from 'sonner';
 import { AlertTriangleIcon, BatteryLowIcon, HouseIcon, TriangleAlertIcon, TruckIcon, UsersIcon, type LucideIcon } from 'lucide-react';
 import { useStore } from '@/data/store';

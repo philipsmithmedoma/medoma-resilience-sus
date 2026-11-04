@@ -40,8 +40,8 @@ async function pick<T>(loader: GeoLoader, label: string): Promise<{ data: T; sou
 
 const cache = new Map<HomePackId, Promise<GeoData>>();
 
-/** The geometry of a home pack (default Karolinska), loaded once per pack with dynamic imports. */
-export function loadGeoData(packId: HomePackId = 'karolinska'): Promise<GeoData> {
+/** The geometry of a home pack (default SUS), loaded once per pack with dynamic imports. */
+export function loadGeoData(packId: HomePackId = 'sus'): Promise<GeoData> {
   let loading = cache.get(packId);
   if (!loading) {
     const geo = homePacks[packId].geo;

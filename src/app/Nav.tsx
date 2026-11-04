@@ -1,6 +1,7 @@
-import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
+import { Link, NavLink, START_ORG_PATH, useLocation, useNavigate } from './router';
 import { BookOpenIcon, ChevronDownIcon, HeadphonesIcon, MessageSquareIcon, XIcon } from 'lucide-react';
 import { CURRENT_USER, PLATFORM_DEFS } from '@/data/vocab';
+import { organisationById } from '@/data/packs/organisations';
 import { useStore } from '@/data/store';
 import { t } from '@/lib/i18n';
 import { CLOSE_FALLBACK, START_PATH, closeBlocked, isPreparednessRoute, navModel, preparednessActive } from '@/lib/preparedness';
@@ -107,6 +108,46 @@ function Indicator() {
   );
 }
 
+/** The organisation's name beside the logo (SPEC.md § 1). */
+function OrganisationName() {
+  const org = organisationById(useStore((s) => s.organisationId));
+  if (!org) return null;
+  return (
+    <span title={org.name} aria-label={t('LABELS.organisationAria', { name: org.name })} className="block max-w-[190px] truncate px-1 text-[12px] leading-4 text-text-secondary">
+      {org.name}
+    </span>
+  );
+}
+
+/** The user menu at the far right: "Byt organisation" is the only way back to the start page, and it is logged. */
+function UserMenu() {
+  const navigate = useNavigate();
+  const leaveOrganisation = useStore((s) => s.leaveOrganisation);
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button type="button" aria-label={t('LABELS.userMenuAria')} title={CURRENT_USER.name} className="flex items-center gap-1 rounded-md px-1 hover:bg-bg-muted">
+          <span className="flex size-8 items-center justify-center rounded-full bg-avatar-bg text-[14px] font-semibold text-avatar-text group-data-[prep=true]:size-7 group-data-[prep=true]:text-[13px]">{CURRENT_USER.initials}</span>
+          {/* The name text needs room the clusters do not have below 1360 px; the avatar keeps it as a title (DECISIONS.md, KS build). */}
+          <span className="hidden text-[16px] leading-6 min-[1360px]:inline">{CURRENT_USER.name}</span>
+          <ChevronDownIcon className="size-4" strokeWidth={1.5} aria-hidden />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="min-w-48">
+        <DropdownMenuItem
+          onSelect={() => {
+            // Route first, then the store: the organisation's gate is gone by the time the store says nobody is signed in.
+            navigate(START_ORG_PATH);
+            leaveOrganisation();
+          }}
+        >
+          {t('LABELS.switchOrganisation')}
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 /**
  * Top navigation in two states chosen by `preparednessActive`, not by the viewport: normal operation (platform tabs, divider,
  * "Beredskap" button) and preparedness mode (a "Medoma" menu, divider, the preparedness modules, the indicator). Both fit at
@@ -124,9 +165,13 @@ export function Nav() {
         <Link to="/" aria-label={t('LABELS.backToStart')} className="flex items-center">
           <Logo />
         </Link>
-        <ScopeSelector />
+        {/* The organisation's name stacked over the unit selector, so that both fit beside the seven platform tabs at 1280 px. */}
+        <div className="flex flex-col justify-center">
+          <OrganisationName />
+          <ScopeSelector />
+        </div>
       </div>
-      <nav aria-label={t('LABELS.modulesAria')} className="ml-2 group-data-[prep=true]:ml-1 flex h-full shrink-0 items-center gap-6 group-data-[prep=true]:gap-1.5">
+      <nav aria-label={t('LABELS.modulesAria')} className="ml-2 group-data-[prep=true]:ml-1 flex h-full shrink-0 items-center gap-4 group-data-[prep=true]:gap-1.5">
         {model.platform === 'tabs' ? model.platformModules.map((m) => <ModuleTab key={m.key} label={t(`MODULES.${m.key}`)} path={m.path} />) : <PlatformMenu />}
         {/* 1 px divider between the platform's existing modules and the preparedness part (DESIGN.md § 3). */}
         <span aria-hidden className="h-5 w-px bg-border" />
@@ -154,11 +199,7 @@ export function Nav() {
         <LocaleToggle />
         <ThemeToggle />
         <DemoControls />
-        <span title={CURRENT_USER.name} className="flex size-8 items-center justify-center rounded-full bg-avatar-bg text-[14px] font-semibold text-avatar-text group-data-[prep=true]:size-7 group-data-[prep=true]:text-[13px]">
-          {CURRENT_USER.initials}
-        </span>
-        {/* The name text needs room the clusters do not have below 1360 px; the avatar keeps it as a title (DECISIONS.md, KS build). */}
-        <span className="hidden text-[16px] leading-6 min-[1360px]:inline">{CURRENT_USER.name}</span>
+        <UserMenu />
       </div>
     </header>
   );

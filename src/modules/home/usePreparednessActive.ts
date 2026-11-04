@@ -1,4 +1,4 @@
-import { useLocation } from 'react-router-dom';
+import { useLocation } from '@/app/router';
 import { useStore } from '@/data/store';
 import { preparednessActive } from '@/lib/preparedness';
 

@@ -66,6 +66,9 @@ export const sv = {
     entries_one: '{n} post, senaste först.',
     entries_other: '{n} poster, senaste först.',
     backToStart: 'Till start',
+    organisationAria: 'Organisation: {name}',
+    userMenuAria: 'Användarmeny',
+    switchOrganisation: 'Byt organisation',
     selectPerson: 'Välj person',
     scopeAria: 'Omfattning: {name}',
     chat: 'Chatt',
@@ -86,14 +89,22 @@ export const sv = {
     days: '{n} dygn',
   },
 
+  START: {
+    title: 'Välj organisation',
+    signIn: 'Logga in',
+    signInAria: 'Logga in i {name}',
+    units: 'Enheter',
+    hint: 'I produktion avgör inloggningen organisationen; här görs valet en gång.',
+  },
+
   CLOCK: {
     ariaClock: 'Klocka {hhmm}',
     day: 'dag {n}',
   },
 
   AUDIT: {
-    homePackSwitched: 'Bytte sjukhus för Sjukhus hemma till',
-    homePackDetail: '{n} patienter, {m} team',
+    organisationSignedIn: 'Loggade in i',
+    organisationSwitched: 'Bytte organisation från',
     homeBlocked: 'Stängde',
     homeUnblocked: 'Öppnade',
     homePowerOut: 'Slog ut elen i',
@@ -308,7 +319,6 @@ export const sv = {
   },
 
   HOME: {
-    packSwitch: { label: 'Sjukhus' },
     planning: {
       visits: 'Besök i dag ({n})',
       teamHeading: '{team} ({n})',
@@ -684,6 +694,9 @@ export const en: Vocab = {
     entries_one: '{n} entry, latest first.',
     entries_other: '{n} entries, latest first.',
     backToStart: 'To start',
+    organisationAria: 'Organisation: {name}',
+    userMenuAria: 'User menu',
+    switchOrganisation: 'Switch organisation',
     selectPerson: 'Select person',
     scopeAria: 'Scope: {name}',
     chat: 'Chat',
@@ -704,14 +717,22 @@ export const en: Vocab = {
     days: '{n} days',
   },
 
+  START: {
+    title: 'Select organisation',
+    signIn: 'Sign in',
+    signInAria: 'Sign in to {name}',
+    units: 'Units',
+    hint: 'In production the sign-in decides the organisation; here the choice is made once.',
+  },
+
   CLOCK: {
     ariaClock: 'Clock {hhmm}',
     day: 'day {n}',
   },
 
   AUDIT: {
-    homePackSwitched: 'Switched the Hospital at Home hospital to',
-    homePackDetail: '{n} patients, {m} teams',
+    organisationSignedIn: 'Signed in to',
+    organisationSwitched: 'Switched organisation from',
     homeBlocked: 'Closed',
     homeUnblocked: 'Reopened',
     homePowerOut: 'Cut the power in',
@@ -925,7 +946,6 @@ export const en: Vocab = {
   },
 
   HOME: {
-    packSwitch: { label: 'Hospital' },
     planning: {
       visits: 'Visits today ({n})',
       teamHeading: '{team} ({n})',
@@ -1239,8 +1259,8 @@ export const SYSTEM_ACTOR = 'System';
 export const COMMANDER_ROLE = 'Sjukvårdsledare LSSL';
 export const LSSL_CHANNEL = 'LSSL';
 
-export const KAROLINSKA_ID = 'karolinska';
-export const DEFAULT_SCOPE = KAROLINSKA_ID;
+/** The node id the current user's channel messages carry (the hospital as a whole). */
+export const HOSPITAL_NODE_ID = 'hospital';
 
 // Navigation: keys into MODULES labels and their routes
 export interface ModuleDef {

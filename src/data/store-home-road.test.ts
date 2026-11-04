@@ -80,22 +80,4 @@ describe('a tap on a road closes the same road within 250 m, in both directions 
       expect(roadsAtTap(g, lone, 55.7, 13.19)).toEqual([987654321]);
     });
   });
-
-  describe('Karolinska: Essingeleden', () => {
-    beforeAll(() => load('karolinska'));
-
-    it('closes every way named Essingeleden within 250 m of the tap, both directions', () => {
-      const g = getRoadModel()!.graph;
-      const ess = g.ways.filter((w) => w.name === 'Essingeleden');
-      expect(ess.length).toBeGreaterThan(0);
-      const { props, at } = tapOn(ess[0].id);
-      s().closeRoadAt(props, at);
-      const want = expectedAt(props, at);
-      expect(s().home.blockedWays).toEqual(want);
-      expect([...want].every((id) => g.ways[g.wayIndexById.get(Number(id))!].name === 'Essingeleden' || g.ways[g.wayIndexById.get(Number(id))!].ref === props.ref)).toBe(true);
-      if (ess.some((w) => w.oneway)) expect(want.size).toBeGreaterThanOrEqual(2);
-      expect(s().home.disruptions.at(-1)!.label.sv).toMatch(/^Essingeleden vid /);
-      s().resetHomeDisruptions();
-    });
-  });
 });

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { Outlet, useLocation } from 'react-router-dom';
+import { Outlet } from 'react-router-dom';
+import { useLocation } from '@/app/router';
 import { useStore } from '@/data/store';
 import { preparednessReason, preparednessTransition, type PreparednessReason } from '@/lib/preparedness';
 import { useLocale } from '@/lib/i18n';

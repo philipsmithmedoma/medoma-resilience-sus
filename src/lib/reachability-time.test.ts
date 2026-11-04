@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, it } from 'vitest';
-import { KAROLINSKA_PACK as pack } from '@/test/packs';
+import { SUS_PACK as pack } from '@/test/packs';
 import { NO_DISRUPTIONS, impact, prioritise, priorityTier, type Disruptions, type ImpactRow } from './reachability';
 import { loadRoadModel, type RoadModel } from './roadModel';
 
@@ -7,10 +7,10 @@ let model: RoadModel;
 beforeAll(async () => {
   model = await loadRoadModel(pack);
 });
-const BOTH: string[] = ['solna', 'huddinge'];
-const power = (start: number): Disruptions => ({ ...NO_DISRUPTIONS, powerOutZones: new Set(['huddinge']), powerStart: new Map([['huddinge', start]]) });
+const BOTH: string[] = ['suslund', 'susmalmo'];
+const power = (start: number): Disruptions => ({ ...NO_DISRUPTIONS, powerOutZones: new Set(['rosengard']), powerStart: new Map([['rosengard', start]]) });
 
-describe('battery deadlines in impact (SPEC.md § 13.2)', () => {
+describe('battery deadlines in impact (SPEC.md § 6)', () => {
   const START = 14 * 60 + 40;
 
   it('puts batteryEmptyAt = start + hours × 60 on every power-out row with a battery', () => {
@@ -45,15 +45,15 @@ describe('battery deadlines in impact (SPEC.md § 13.2)', () => {
   });
 
   it('has no battery figures without a clock or a start time (pure callers keep working)', () => {
-    const none = impact(pack, { ...NO_DISRUPTIONS, powerOutZones: new Set(['huddinge']) }, BOTH, model);
+    const none = impact(pack, { ...NO_DISRUPTIONS, powerOutZones: new Set(['rosengard']) }, BOTH, model);
     expect(none.rows.every((x) => x.batteryEmptyAt === null)).toBe(true);
     expect(none.summary.runOutWithin2h).toBe(0);
   });
 });
 
-describe('prioritise by batteryEmptyAt (SPEC.md § 13.2)', () => {
+describe('prioritise by batteryEmptyAt (SPEC.md § 6)', () => {
   const patient = (id: string, hours: number) => ({
-    id, familyName: id, givenName: 'X', personalNumber: '19500101-0000', age: 70, zone: 'huddinge', street: 'Gatan', houseNo: 1, lat: 0, lng: 0, team: 'ASIH Syd', equipment: [], batteryHours: hours,
+    id, familyName: id, givenName: 'X', personalNumber: '19500101-0000', age: 70, zone: 'rosengard', street: 'Gatan', houseNo: 1, lat: 0, lng: 0, team: 'Sjukhus hemma Malmö', equipment: [], batteryHours: hours,
     backupHours: null, monitoringLevel: 'none' as const, monitoringReason: null, antibiotic: null, heatSensitive: false, visitToday: false, elCritical: true,
     enrolledOn: '2026-09-01', plannedDischargeOn: '2026-09-20', appLoggedIn: true,
   });

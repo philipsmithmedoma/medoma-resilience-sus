@@ -22,18 +22,14 @@ describe('the preparedness indicator (DESIGN.md § 7)', () => {
 
 describe('the start view of the home map (SPEC.md § 5)', () => {
   it('fits the zones and the sites of the selected pack, not the infrastructure nodes', () => {
-    for (const id of ['sus', 'karolinska'] as const) {
-      const pack = homePacks[id];
-      const pts = homeFitPoints({ zones: pack.zones }, pack.sites);
-      expect(pts).toHaveLength(pack.zones.length * 2 + pack.sites.length);
-      for (const s of pack.sites) expect(pts.some((p) => p[0] === s.lat && p[1] === s.lng)).toBe(true);
-      const lats = pts.map((p) => p[0]);
-      // Every infrastructure node outside the zones' box (the Bolmen tunnel, the far substations) is left to the user.
-      const outside = pack.infraNodes.filter((n) => n.lat > Math.max(...lats) || n.lat < Math.min(...lats));
-      expect(outside.length).toBeGreaterThanOrEqual(0);
-    }
-    const sus = homePacks.sus;
-    const lats = homeFitPoints({ zones: sus.zones }, sus.sites).map((p) => p[0]);
+    const pack = homePacks.sus;
+    const pts = homeFitPoints({ zones: pack.zones }, pack.sites);
+    expect(pts).toHaveLength(pack.zones.length * 2 + pack.sites.length);
+    for (const s of pack.sites) expect(pts.some((p) => p[0] === s.lat && p[1] === s.lng)).toBe(true);
+    const lats = pts.map((p) => p[0]);
+    // Every infrastructure node outside the zones' box (the Bolmen tunnel, the far substations) is left to the user.
+    const outside = pack.infraNodes.filter((n) => n.lat > Math.max(...lats) || n.lat < Math.min(...lats));
+    expect(outside.length).toBeGreaterThanOrEqual(0);
     expect(Math.min(...lats)).toBeLessThan(55.4); // Trelleborg
     expect(Math.max(...lats)).toBeGreaterThan(55.85); // Hörby and Eslöv
   });

@@ -11,6 +11,7 @@ import { Nav } from './Nav';
 
 /** The navigation's markup for a route, from the store's current state. */
 const render = (route: string): string => {
+  route = `/o/sus${route}`;
   cleanup();
   const { container } = rtl(
     <MemoryRouter initialEntries={[route]}>

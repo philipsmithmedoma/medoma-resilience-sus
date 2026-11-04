@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, it } from 'vitest';
-import { KAROLINSKA_PACK as pack } from '@/test/packs';
+import { SUS_PACK as pack } from '@/test/packs';
 import type { HomePatient } from '@/data/types';
 import { NO_DISRUPTIONS, disruptionCount, explainPath, impact, prioritise, priorityTier, type Disruptions, type ImpactRow } from './reachability';
 import { loadRoadModel, type RoadModel } from './roadModel';
@@ -12,25 +12,28 @@ beforeAll(async () => {
   model = await loadRoadModel(pack);
 });
 
-const SOLNA: string[] = ['solna'];
-const HUDDINGE: string[] = ['huddinge'];
-const BOTH: string[] = ['solna', 'huddinge'];
+const LUND: string[] = ['suslund'];
+const MALMO: string[] = ['susmalmo'];
+const BOTH: string[] = ['suslund', 'susmalmo'];
 const inZones = (...zones: string[]) => pack.homePatients.filter((p) => zones.includes(p.zone));
 
-/** SPEC.md § 12.4 test 3: every way with these names. A missing crossing found by the real data is added here and in DECISIONS.md. */
-const CROSSINGS = ['Essingeleden', 'Västerbron', 'Centralbron', 'Munkbroleden', 'Skeppsbron', 'Söderledstunneln', 'Katarinavägen', 'Stadsgårdsleden'];
-const SOUTH = ['sodermalm', 'soderort', 'huddinge', 'botkyrka', 'nacka'];
+/** Zones served by Sjukhus hemma Malmö, i.e. the far side of the Lund-Malmö link when seen from Lund. */
+const MALMO_SIDE = ['malmo', 'limhamn', 'hyllie', 'rosengard', 'arlov', 'oxie', 'vellinge', 'svedala', 'trelleborg'];
+/** Malmö-side zones that do not hang off the E22 link itself (Arlöv is reached by the E22 way from Lund Södra in the fixture). */
+const MALMO_CORE = MALMO_SIDE.filter((z) => z !== 'arlov');
+/** The roads linking Lund and Malmö (DECISIONS.md entry 17: the E22 way from Lund Södra to Arlöv). Real OpenStreetMap data has more links (E6, Väg 108 ...), so claims about this set alone are fixture-only. */
+const CROSSINGS = ['E22'];
 
-describe('the road model (SPEC.md § 12.3)', () => {
+describe('the road model (SPEC.md § 5)', () => {
   it('attaches both sites to the graph and uses OSM data or the fixture', () => {
-    expect(model.sites.solna.unsnapped).toBe(false);
-    expect(model.sites.huddinge.unsnapped).toBe(false);
+    expect(model.sites.suslund.unsnapped).toBe(false);
+    expect(model.sites.susmalmo.unsnapped).toBe(false);
     expect(['osm', 'fixture']).toContain(model.source);
     expect(model.graph.vertexCount).toBeGreaterThan(50);
   });
 
-  it('1. at baseline from Solna and from Huddinge at least 95 % of patients snap within 1 500 m and have a path', () => {
-    for (const scope of [SOLNA, HUDDINGE]) {
+  it('1. at baseline from Lund and from Malmö at least 95 % of patients snap within 1 500 m and have a path', () => {
+    for (const scope of [LUND, MALMO]) {
       const base = model.baseline(scope);
       const ok = pack.homePatients.filter((p) => {
         const snap = model.patients.get(p.id)!;
@@ -41,12 +44,12 @@ describe('the road model (SPEC.md § 12.3)', () => {
   });
 
   it('memoises the baseline per scope', () => {
-    expect(model.baseline(SOLNA)).toBe(model.baseline(SOLNA));
-    expect(model.baseline(BOTH)).not.toBe(model.baseline(SOLNA));
+    expect(model.baseline(LUND)).toBe(model.baseline(LUND));
+    expect(model.baseline(BOTH)).not.toBe(model.baseline(LUND));
   });
 });
 
-describe('impact on the real graph (SPEC.md § 12.4)', () => {
+describe('impact on the road graph (SPEC.md § 6)', () => {
   it('has no rows with nothing disrupted', () => {
     const r = impact(pack, NO_DISRUPTIONS, BOTH, model);
     expect(r.rows).toHaveLength(0);
@@ -54,113 +57,133 @@ describe('impact on the real graph (SPEC.md § 12.4)', () => {
     expect(disruptionCount(NO_DISRUPTIONS)).toBe(0);
   });
 
-  it('2. blocking every way named Essingeleden leaves a patient in Söderort reachable from Solna alone, without going via Huddinge', () => {
-    const state = dis({ blockedRoads: set('Essingeleden') });
-    const reachable = inZones('soderort').filter((p) => explainPath(pack, state, SOLNA, model, p) !== null);
+  it('2. blocking every way named E22 leaves a patient in Lund reachable from Lund alone, without going via Malmö', () => {
+    const state = dis({ blockedRoads: set('E22') });
+    const reachable = inZones('lund').filter((p) => explainPath(pack, state, LUND, model, p) !== null);
     expect(reachable.length).toBeGreaterThan(0);
-    // The scope is Solna only, so no path can start at Huddinge; the paths use another crossing.
-    for (const p of reachable) expect(explainPath(pack, state, SOLNA, model, p)).not.toContain('Essingeleden');
-    // The main-road graph has no local streets, so a patient who lives on an Essingeleden ramp is cut off with it. Everybody else
-    // in Söderort stays reachable: every Söderort row that is `unreachable` is a patient whose baseline path used Essingeleden.
-    const r = impact(pack, state, SOLNA, model);
-    const cut = r.rows.filter((x) => x.patient.zone === 'soderort' && x.unreachable);
-    for (const x of cut) expect(explainPath(pack, NO_DISRUPTIONS, SOLNA, model, x.patient), x.patient.id).toContain('Essingeleden');
-    expect(cut.length).toBeLessThan(inZones('soderort').length);
+    // The scope is Lund only, so no path can start at Malmö; the paths use local roads.
+    for (const p of reachable) expect(explainPath(pack, state, LUND, model, p)).not.toContain('E22');
+    const r = impact(pack, state, LUND, model);
+    const cut = r.rows.filter((x) => x.patient.zone === 'lund' && x.unreachable);
+    expect(cut.length).toBeLessThan(inZones('lund').length);
   });
 
-  it('3. blocking the crossing set makes every patient in Södermalm, Söderort, Huddinge, Botkyrka and Nacka unreachable from Solna', () => {
+  it('2b. fixture: every Lund patient cut off by blocking E22 had E22 on the baseline path', (ctx) => {
+    if (model.source !== 'fixture') ctx.skip(); // path names depend on how the ways are named, which the fixture fixes
+    const r = impact(pack, dis({ blockedRoads: set('E22') }), LUND, model);
+    for (const x of r.rows.filter((y) => y.unreachable)) expect(explainPath(pack, NO_DISRUPTIONS, LUND, model, x.patient), x.patient.id).toContain('E22');
+  });
+
+  it('3. fixture: blocking the crossing set makes every patient on the Malmö side unreachable from Lund', (ctx) => {
+    if (model.source !== 'fixture') ctx.skip(); // the real data has more links between the halves than the crossing set names
     const state = dis({ blockedRoads: new Set(CROSSINGS) });
-    const remaining = inZones(...SOUTH)
-      .map((p) => ({ p, path: explainPath(pack, state, SOLNA, model, p) }))
+    const remaining = inZones(...MALMO_SIDE)
+      .map((p) => ({ p, path: explainPath(pack, state, LUND, model, p) }))
       .filter((x) => x.path !== null);
     // A path that survives names the crossing the set is missing (print it, fail, extend the set in this test and in DECISIONS.md).
     const message = remaining.slice(0, 5).map((x) => `${x.p.id} (${x.p.zone}): ${x.path!.join(' → ')}`).join('\n');
     if (remaining.length) console.error(`Missing crossing(s); ways on the remaining path:\n${message}`);
     expect(remaining, message).toEqual([]);
-    const r = impact(pack, state, SOLNA, model);
-    for (const p of inZones(...SOUTH)) {
+    const r = impact(pack, state, LUND, model);
+    for (const p of inZones(...MALMO_SIDE)) {
       const snap = model.patients.get(p.id)!;
       // A patient with no road within 1.5 km is unreachable by definition and is reported by the model, not as an effect.
       if (!snap.unsnapped) expect(r.rows.find((x) => x.patient.id === p.id)?.unreachable, p.id).toBe(true);
     }
   });
 
-  it('4. the same crossing set leaves every patient in Huddinge and Botkyrka reachable from Huddinge', () => {
+  it('4. fixture: the same crossing set leaves every Malmö, Limhamn, Hyllie and Rosengård patient reachable from Malmö', (ctx) => {
+    if (model.source !== 'fixture') ctx.skip(); // see 3
     const state = dis({ blockedRoads: new Set(CROSSINGS) });
-    for (const p of inZones('huddinge', 'botkyrka')) {
+    for (const p of inZones(...MALMO_CORE)) {
       const snap = model.patients.get(p.id)!;
-      // A patient with no road vertex within 1.5 km (SPEC.md § 12.3) is unreachable by definition, with or without the set.
+      // A patient with no road vertex within 1.5 km (SPEC.md § 5) is unreachable by definition, with or without the set.
       if (snap.unsnapped) continue;
-      expect(explainPath(pack, state, HUDDINGE, model, p), p.id).not.toBeNull();
+      expect(explainPath(pack, state, MALMO, model, p), p.id).not.toBeNull();
     }
-    expect(impact(pack, state, HUDDINGE, model).rows.filter((x) => ['huddinge', 'botkyrka'].includes(x.patient.zone) && x.unreachable && !model.patients.get(x.patient.id)!.unsnapped)).toHaveLength(0);
+    expect(impact(pack, state, MALMO, model).rows.filter((x) => MALMO_CORE.includes(x.patient.zone) && x.unreachable && !model.patients.get(x.patient.id)!.unsnapped)).toHaveLength(0);
   });
 
-  it('5. a power outage in Huddinge flags exactly the Huddinge patients', () => {
-    const huddingeIds = pack.homePatients.filter((p) => p.zone === 'huddinge').map((p) => p.id);
-    const r = impact(pack, dis({ powerOutZones: set('huddinge') }), BOTH, model);
-    expect(r.rows.map((x) => x.patient.id).sort()).toEqual([...huddingeIds].sort());
+  it('5. a power outage in Dalby flags exactly the Dalby patients', () => {
+    const dalbyIds = pack.homePatients.filter((p) => p.zone === 'dalby').map((p) => p.id);
+    expect(dalbyIds.length).toBeGreaterThan(0);
+    const r = impact(pack, dis({ powerOutZones: set('dalby') }), BOTH, model);
+    expect(r.rows.map((x) => x.patient.id).sort()).toEqual([...dalbyIds].sort());
     expect(r.rows.every((x) => x.power && !x.unreachable && !x.delayed && x.reasons.join() === 'power')).toBe(true);
-    expect(r.summary.affected).toBe(20);
-    expect(r.summary.powerOut).toBe(20);
-    const batteries = pack.homePatients.filter((p) => p.zone === 'huddinge' && p.elCritical).map((p) => p.batteryHours! + (p.backupHours ?? 0));
+    expect(r.summary.affected).toBe(dalbyIds.length);
+    expect(r.summary.powerOut).toBe(dalbyIds.length);
+    const batteries = pack.homePatients.filter((p) => p.zone === 'dalby' && p.elCritical).map((p) => p.batteryHours! + (p.backupHours ?? 0));
     expect(r.summary.shortestBattery).toBe(batteries.length ? Math.min(...batteries) : null);
   });
 
   it('a water disruption is a boil-water advisory: it marks the zone and makes nobody critical', () => {
-    const r = impact(pack, dis({ waterOutZones: set('solna') }), BOTH, model);
-    expect(r.summary.waterOut).toBe(25);
+    const r = impact(pack, dis({ waterOutZones: set('lund') }), BOTH, model);
+    expect(r.summary.waterOut).toBe(inZones('lund').length);
     expect(r.rows.every((x) => x.water && !x.critical)).toBe(true);
   });
 
-  it('a closed bridge node blocks the ways it names, and a closed way id blocks that way only', () => {
-    const viaNode = impact(pack, dis({ blockedNodes: set('r-essingeleden') }), SOLNA, model);
-    const viaName = impact(pack, dis({ blockedRoads: set('Essingeleden') }), SOLNA, model);
+  it('a closed junction node blocks the ways it names, and a closed way id blocks that way only', () => {
+    const node = pack.infraNodes.find((n) => n.id === 'r-lund-s')!;
+    const viaNode = impact(pack, dis({ blockedNodes: set(node.id) }), LUND, model);
+    const viaName = impact(pack, dis({ blockedRoads: new Set(node.osmWayNames) }), LUND, model);
     expect(viaNode.summary).toEqual(viaName.summary);
-    const ess = model.graph.ways.find((w) => w.name === 'Essingeleden')!;
-    const one = impact(pack, dis({ blockedWays: set(String(ess.id)) }), SOLNA, model);
-    expect(one.summary.affected).toBeLessThanOrEqual(viaName.summary.affected + 0);
+    const way = model.graph.ways.find((w) => w.name === node.osmWayNames![0]);
+    if (way) {
+      const one = impact(pack, dis({ blockedWays: set(String(way.id)) }), LUND, model);
+      expect(one.summary.affected).toBeLessThanOrEqual(viaName.summary.affected);
+    }
   });
 
-  it('marks a longer route as a detour (25 % or 3 km longer) and counts it apart from the affected', () => {
-    // Closing Centralbron forces the traffic from Solna to the inner city onto a longer way round (Norra länken has parallel roads: no patient is delayed by it).
-    const r = impact(pack, dis({ blockedRoads: set('Centralbron') }), SOLNA, model);
-    expect(r.summary.detour).toBeGreaterThan(0);
+  it('6. fixture: closing Södra vägen with both sites in scope turns 30 patients into detours and leaves nobody unreachable', (ctx) => {
+    if (model.source !== 'fixture') ctx.skip(); // the count belongs to the hand-written fixture
+    // The fixture's Södra vägen is the link between Lund and the E22; with it closed the patients behind it get a longer route.
+    const r = impact(pack, dis({ blockedRoads: set('Södra vägen') }), BOTH, model);
+    expect(r.summary).toMatchObject({ detour: 30, unreachable: 0 });
     expect(r.rows.filter((x) => x.delayed).every((x) => x.reasons.includes('detour'))).toBe(true);
     expect(r.summary.affected).toBe(r.rows.filter((x) => x.affected).length);
   });
 
   it('gives every delayed patient extraKm = the shortest path now minus the baseline, and the summary the median and the maximum', () => {
-    const state = dis({ blockedRoads: set('Centralbron') });
-    const r = impact(pack, state, SOLNA, model);
-    const delayed = r.rows.filter((x) => x.delayed);
-    expect(delayed.length).toBeGreaterThan(0);
-    const base = model.baseline(SOLNA);
-    for (const row of delayed) {
-      expect(Number.isInteger(row.extraKm)).toBe(true);
-      expect(row.extraKm!).toBeGreaterThanOrEqual(0);
-      const snap = model.patients.get(row.patient.id)!;
-      const now = impact(pack, state, SOLNA, model); // same state: the distance now is what the row was built from
-      expect(now.rows.find((x) => x.patient.id === row.patient.id)!.extraKm).toBe(row.extraKm);
-      expect(base[snap.vertex]).toBeLessThan(Infinity);
+    for (const roads of [['Södra vägen'], ['Entrégatan'], ['Inre Ringvägen'], ['E22']]) {
+      const state = dis({ blockedRoads: new Set(roads) });
+      const r = impact(pack, state, BOTH, model);
+      const delayed = r.rows.filter((x) => x.delayed);
+      for (const row of delayed) {
+        expect(Number.isInteger(row.extraKm)).toBe(true);
+        expect(row.extraKm!).toBeGreaterThanOrEqual(0);
+        expect(r.rows.find((x) => x.patient.id === row.patient.id)!.reasons).toContain('detour');
+      }
+      if (!delayed.length) {
+        expect(r.summary).toMatchObject({ medianExtraKm: null, maxExtraKm: null });
+        continue;
+      }
+      const km = delayed.map((x) => x.extraKm!).sort((a, b) => a - b);
+      expect(r.summary.maxExtraKm).toBe(km[km.length - 1]);
+      expect(r.summary.medianExtraKm).toBe(km.length % 2 ? km[km.length >> 1] : Math.round((km[(km.length >> 1) - 1] + km[km.length >> 1]) / 2));
     }
-    const km = delayed.map((x) => x.extraKm!).sort((a, b) => a - b);
-    expect(r.summary.maxExtraKm).toBe(km[km.length - 1]);
-    expect(r.summary.medianExtraKm).toBe(km.length % 2 ? km[km.length >> 1] : Math.round((km[(km.length >> 1) - 1] + km[km.length >> 1]) / 2));
-    expect(impact(pack, dis({}), SOLNA, model).summary).toMatchObject({ medianExtraKm: null, maxExtraKm: null });
+    expect(impact(pack, dis({}), BOTH, model).summary).toMatchObject({ medianExtraKm: null, maxExtraKm: null });
   });
 
-  it('uses both sites when the scope yields none, and answers without a model for power and water only', () => {
-    const d = dis({ blockedRoads: set('Essingeleden') });
+  it('7. fixture: the detour from closing Södra vägen is positive for every delayed patient', (ctx) => {
+    if (model.source !== 'fixture') ctx.skip();
+    const r = impact(pack, dis({ blockedRoads: set('Södra vägen') }), BOTH, model);
+    const delayed = r.rows.filter((x) => x.delayed);
+    expect(delayed.length).toBeGreaterThan(0);
+    expect(delayed.every((x) => x.extraKm! > 0)).toBe(true);
+    expect(r.summary.maxExtraKm).toBeGreaterThan(0);
+  });
+
+  it('uses every site of the road model when the scope yields none, and answers without a model for power and water only', () => {
+    const d = dis({ blockedRoads: set('E22') });
     expect(impact(pack, d, [], model).summary).toEqual(impact(pack, d, BOTH, model).summary);
     expect(impact(pack, d, BOTH, null).rows).toHaveLength(0);
-    expect(impact(pack, dis({ powerOutZones: set('taby') }), BOTH, null).rows).toHaveLength(10);
+    expect(impact(pack, dis({ powerOutZones: set('hyllie') }), BOTH, null).rows).toHaveLength(inZones('hyllie').length);
   });
 });
 
 describe('prioritise (SPEC.md § 6)', () => {
   const patient = (id: string, o: Partial<HomePatient>): HomePatient => ({
-    id, familyName: id, givenName: 'X', personalNumber: '19500101-0000', age: 70, zone: 'solna', street: 'Gatan', houseNo: 1, lat: 0, lng: 0, team: 'ASIH Nord', equipment: [],
+    id, familyName: id, givenName: 'X', personalNumber: '19500101-0000', age: 70, zone: 'lund', street: 'Gatan', houseNo: 1, lat: 0, lng: 0, team: 'Sjukhus hemma Lund', equipment: [],
     batteryHours: null, backupHours: null, monitoringLevel: 'none', monitoringReason: null, antibiotic: null, heatSensitive: false, visitToday: false, elCritical: false,
     enrolledOn: '2026-09-01', plannedDischargeOn: '2026-09-20', appLoggedIn: true, ...o,
   });

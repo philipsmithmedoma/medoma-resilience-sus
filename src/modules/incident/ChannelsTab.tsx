@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from '@/app/router';
 import { MessageSquareIcon } from 'lucide-react';
 import type { Incident } from '@/data/types';
 import { ICON_TINTS } from '@/data/vocab';

@@ -1,4 +1,4 @@
-import { Navigate } from 'react-router-dom';
+import { Navigate } from '@/app/router';
 import { useStore } from '@/data/store';
 import { preparednessActive, rootTarget } from '@/lib/preparedness';
 

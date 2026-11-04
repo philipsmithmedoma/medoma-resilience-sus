@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { Link } from '@/app/router';
 import { cn } from '@/lib/utils';
 
 export interface SubTab {

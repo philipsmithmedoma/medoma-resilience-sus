@@ -11,22 +11,22 @@ const last = () => s().log[s().log.length - 1];
 const status = (id: string) => s().home.work[id]?.status ?? 'Unhandled';
 
 beforeAll(async () => {
-  resetStoreTo('karolinska');
+  resetStoreTo('sus');
   await loadRoadModel(useStore.getState().pack);
   useStore.getState().setHomeGeoReady();
 });
 
-/** A critical patient and a patient with a visit today, both in Huddinge, once the power is out there. */
+/** A critical patient and a patient with a visit today, both in Rosengård, once the power is out there. */
 function setup() {
-  s().togglePowerOut('huddinge');
+  s().togglePowerOut('rosengard');
   const pack = s().pack;
-  const critical = pack.homePatients.find((p) => p.zone === 'huddinge' && p.elCritical)!;
-  const visit = pack.homePatients.find((p) => p.zone === 'huddinge' && p.visitToday)!;
+  const critical = pack.homePatients.find((p) => p.zone === 'rosengard' && p.elCritical)!;
+  const visit = pack.homePatients.find((p) => p.zone === 'rosengard' && p.visitToday)!;
   return { critical, visit };
 }
 
 describe('actions per patient (SPEC.md § 13.3)', () => {
-  beforeEach(() => resetStoreTo('karolinska'));
+  beforeEach(() => resetStoreTo('sus'));
 
   it('every patient starts Unhandled', () => {
     const { critical } = setup();
@@ -45,23 +45,23 @@ describe('actions per patient (SPEC.md § 13.3)', () => {
 
   it('Send team sets Planned and records the team on the patient', () => {
     const { critical } = setup();
-    s().sendTeam(critical.id, 'asih-nord');
+    s().sendTeam(critical.id, 'shh-lund');
     expect(status(critical.id)).toBe('Planned');
-    expect(s().home.work[critical.id].assignedTeam).toBe('asih-nord');
-    expect(last()).toMatchObject({ action: 'Skickade team till patient', detail: 'ASIH Nord', ref: critical.id });
+    expect(s().home.work[critical.id].assignedTeam).toBe('shh-lund');
+    expect(last()).toMatchObject({ action: 'Skickade team till patient', detail: 'Sjukhus hemma Lund', ref: critical.id });
     s().sendTeam(critical.id, 'no-such-team');
-    expect(s().home.work[critical.id].assignedTeam).toBe('asih-nord');
+    expect(s().home.work[critical.id].assignedTeam).toBe('shh-lund');
   });
 
-  it('Bring in sets Planned and marks the nearest site in scope; Huddinge patients go to Huddinge', () => {
+  it('Bring in sets Planned and marks the nearest site in scope; Malmö patients go to the Malmö site', () => {
     const { critical } = setup();
     s().bringInPatient(critical.id);
     expect(status(critical.id)).toBe('Planned');
-    expect(s().home.work[critical.id].bringInSite).toBe('huddinge');
+    expect(s().home.work[critical.id].bringInSite).toBe('susmalmo');
     expect(last()).toMatchObject({ action: 'Tog in patient', ref: critical.id });
-    s().setScope('solna');
+    s().setScope('suslund');
     s().bringInPatient(critical.id);
-    expect(s().home.work[critical.id].bringInSite).toBe('solna');
+    expect(s().home.work[critical.id].bringInSite).toBe('suslund');
   });
 
   it('Confirm sets Confirmed, and the status never moves backwards', () => {
@@ -93,7 +93,7 @@ describe('actions per patient (SPEC.md § 13.3)', () => {
 
   it('Move visit does nothing for a patient without a visit today', () => {
     setup();
-    const none = s().pack.homePatients.find((p) => p.zone === 'huddinge' && !p.visitToday)!;
+    const none = s().pack.homePatients.find((p) => p.zone === 'rosengard' && !p.visitToday)!;
     const n = s().log.length;
     s().moveVisit(none.id, 15 * 60);
     expect(s().log).toHaveLength(n);
@@ -104,7 +104,7 @@ describe('actions per patient (SPEC.md § 13.3)', () => {
     const seen = [status(critical.id)];
     s().contactPatient(critical.id, '');
     seen.push(status(critical.id));
-    s().sendTeam(critical.id, 'asih-syd');
+    s().sendTeam(critical.id, 'shh-malmo');
     seen.push(status(critical.id));
     s().confirmPatient(critical.id);
     seen.push(status(critical.id));
@@ -114,7 +114,7 @@ describe('actions per patient (SPEC.md § 13.3)', () => {
   it('"Contact all critical" sets Contacted on every critical row with the note "bulk contact", in one log entry', () => {
     s().applyHomePreset('power');
     // Critical rows that can be phoned: the network has not fallen yet, so everyone critical can be reached.
-    const critical = impact(s().pack, s().home, homeSitesInScope('karolinska', s().scope), undefined, s().clock).rows.filter((r) => r.critical && !r.noContact).map((r) => r.patient);
+    const critical = impact(s().pack, s().home, homeSitesInScope('sus', s().scope), undefined, s().clock).rows.filter((r) => r.critical && !r.noContact).map((r) => r.patient);
     expect(critical.length).toBeGreaterThan(0);
     const n = s().log.length;
     s().contactAllCritical();
@@ -132,13 +132,13 @@ describe('actions per patient (SPEC.md § 13.3)', () => {
 
   it('status resets to Unhandled only when the disruption that affected the patient ends; the log keeps the history', () => {
     const { critical } = setup();
-    s().togglePowerOut('soderort'); // a second, unrelated disruption
+    s().togglePowerOut('lund'); // a second, unrelated disruption
     s().contactPatient(critical.id, 'x');
-    s().sendTeam(critical.id, 'asih-syd');
-    s().togglePowerOut('soderort'); // other zone ends: the patient is still affected
+    s().sendTeam(critical.id, 'shh-malmo');
+    s().togglePowerOut('lund'); // other zone ends: the patient is still affected
     expect(status(critical.id)).toBe('Planned');
     const before = s().log.length;
-    s().togglePowerOut('huddinge'); // the disruption affecting the patient ends
+    s().togglePowerOut('rosengard'); // the disruption affecting the patient ends
     expect(status(critical.id)).toBe('Unhandled');
     expect(s().home.work[critical.id]).toBeUndefined();
     expect(s().log.slice(before).map((e) => e.action)).toContain('Återställde status till Ohanterad');
@@ -148,9 +148,9 @@ describe('actions per patient (SPEC.md § 13.3)', () => {
 
   it('status also resets when the disruption ends by its expected time', () => {
     const { critical } = setup();
-    const id = s().home.disruptions.find((d) => d.target === 'huddinge')!.id;
+    const id = s().home.disruptions.find((d) => d.target === 'rosengard')!.id;
     s().endHomeDisruption(id);
-    s().startHomeDisruption({ kind: 'power', target: 'huddinge', targetKind: 'zone', source: 'message', expectedEnd: s().clock + 60 });
+    s().startHomeDisruption({ kind: 'power', target: 'rosengard', targetKind: 'zone', source: 'message', expectedEnd: s().clock + 60 });
     s().contactPatient(critical.id, '');
     expect(status(critical.id)).toBe('Contacted');
     s().advanceClock(60);

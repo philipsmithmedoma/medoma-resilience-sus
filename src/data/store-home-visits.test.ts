@@ -6,13 +6,13 @@ import { freeSlots } from './packs/home-visits';
 
 const s = () => useStore.getState();
 beforeAll(async () => {
-  resetStoreTo('karolinska');
+  resetStoreTo('sus');
   await loadRoadModel(useStore.getState().pack);
   useStore.getState().setHomeGeoReady();
 });
 
 describe('visits and the log (SPEC.md § 14.3, § 14.4)', () => {
-  beforeEach(() => resetStoreTo('karolinska'));
+  beforeEach(() => resetStoreTo('sus'));
 
   it('Move visit works in normal operation: it changes the slot and logs it, with no status chain to move', () => {
     const patient = s().pack.homePatients.find((p) => p.visitToday)!;
@@ -27,7 +27,7 @@ describe('visits and the log (SPEC.md § 14.3, § 14.4)', () => {
 
   it('a move changes the sequence: the visit takes its new place when the group is sorted', async () => {
     const { planningGroups } = await import('@/lib/planning');
-    const patient = s().pack.homePatients.find((p) => p.visitToday && p.team === 'ASIH Nord')!;
+    const patient = s().pack.homePatients.find((p) => p.visitToday && p.team === 'Sjukhus hemma Lund')!;
     const before = planningGroups(s().home.visits, s().home.work, s().pack.homePatients, s().pack.homeTeams, s().clock)[0].rows.map((r) => r.patient.id);
     const team = s().pack.homeTeams[0];
     const visit = s().home.visits.find((v) => v.patientId === patient.id)!;
@@ -39,7 +39,7 @@ describe('visits and the log (SPEC.md § 14.3, § 14.4)', () => {
   });
 
   it('every entry of the module carries area "home" for the log filter, and the rest of the log does not', () => {
-    s().togglePowerOut('huddinge');
+    s().togglePowerOut('rosengard');
     s().contactAllCritical();
     s().advanceClock(60);
     const log = s().log;

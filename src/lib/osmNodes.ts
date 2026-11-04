@@ -26,7 +26,7 @@ export function osmCoordSource(source: GeoData['source']['power'], date: string 
   return { confidence: 'illustrative', source: 'Fixture standing in for OpenStreetMap data that has not been fetched (scripts/fetch-osm.mjs)' };
 }
 
-export function applyOsmNodes(base: InfraNode[], geo: Pick<GeoData, 'power' | 'water' | 'source'>, date: string | null, packId: HomePackId = 'karolinska'): AppliedNodes {
+export function applyOsmNodes(base: InfraNode[], geo: Pick<GeoData, 'power' | 'water' | 'source'>, date: string | null, packId: HomePackId = 'sus'): AppliedNodes {
   const home = homePacks[packId];
   const fallback: [number, number] = [home.sites[0].lat, home.sites[0].lng];
   const power = geo.power.features.filter((f): f is PointFeature => f.geometry.type === 'Point' && f.properties.power === 'substation');
@@ -111,15 +111,15 @@ export function powerLines(geo: Pick<GeoData, 'power'>): PowerLine[] {
 }
 
 const applied = new Map<HomePackId, AppliedNodes>();
-/** The nodes of a home pack (default Karolinska) with OpenStreetMap positions once they have been computed (kept across a demo reset). */
-export const getAppliedNodes = (packId: HomePackId = 'karolinska'): AppliedNodes | null => applied.get(packId) ?? null;
-export const setAppliedNodes = (a: AppliedNodes, packId: HomePackId = 'karolinska'): void => {
+/** The nodes of a home pack (default SUS) with OpenStreetMap positions once they have been computed (kept across a demo reset). */
+export const getAppliedNodes = (packId: HomePackId = 'sus'): AppliedNodes | null => applied.get(packId) ?? null;
+export const setAppliedNodes = (a: AppliedNodes, packId: HomePackId = 'sus'): void => {
   applied.set(packId, a);
 };
 
 /** The query date from geo/<pack>/README.md ("Query date: 2026-11-03"), or null when the data has not been fetched. */
 const readmes = import.meta.glob('../data/packs/geo/*/README.md', { query: '?raw', import: 'default' }) as Record<string, () => Promise<string>>;
-export async function loadQueryDate(packId: HomePackId = 'karolinska'): Promise<string | null> {
+export async function loadQueryDate(packId: HomePackId = 'sus'): Promise<string | null> {
   const load = readmes[`../data/packs/geo/${packId}/README.md`];
   if (!load) return null;
   const m = /Query date: (\d{4}-\d{2}-\d{2})/.exec(await load());

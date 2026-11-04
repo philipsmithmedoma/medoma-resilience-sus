@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { homePacks } from '@/data/packs/home-packs';
+import { loadGeoData } from './geoData';
 import { blockedWayFlags, buildRoadGraph, dijkstra, haversineM, pathWayNames, roadKey, snapToGraph, type LngLat, type RoadCollection } from './roadGraph';
 
 const way = (id: number, name: string | null, points: LngLat[], o: Partial<{ ref: string | null; oneway: boolean; bridge: boolean }> = {}) => ({
@@ -91,9 +93,9 @@ describe('dijkstra and blocking (SPEC.md § 12.3)', () => {
   });
 
   it('builds the key of a "block whole road" tap from the name and the ref', () => {
-    expect(roadKey({ name: 'Essingeleden', ref: 'E4' })).toBe('Essingeleden|E4');
-    expect(roadKey({ name: 'Västerbron', ref: null })).toBe('Västerbron');
-    expect(roadKey({ name: null, ref: 'E4' })).toBeNull();
+    expect(roadKey({ name: 'Lundavägen', ref: 'E22' })).toBe('Lundavägen|E22');
+    expect(roadKey({ name: 'Inre Ringvägen', ref: null })).toBe('Inre Ringvägen');
+    expect(roadKey({ name: null, ref: 'E22' })).toBeNull();
   });
 });
 
@@ -113,7 +115,7 @@ describe('snapToGraph (SPEC.md § 12.3)', () => {
   });
 });
 
-describe('snapping and one-way ramps (regression: 0 % of the patients had a path from Solna)', () => {
+describe('snapping and one-way ramps (regression: 0 % of the patients had a path from the hospital)', () => {
   // A two-way road P—Q—R, and a one-way exit ramp from Q to the dead end X that lies nearer to the point than any vertex of the road.
   const P: LngLat = [18.0, 59.3];
   const Q: LngLat = [18.01, 59.3];
@@ -145,11 +147,12 @@ describe('snapping and one-way ramps (regression: 0 % of the patients had a path
   });
 });
 
-describe('the committed OpenStreetMap graph (SPEC.md § 12.3)', () => {
-  it('lets the Solna site reach most of the graph: it snaps to a vertex a search can leave', async () => {
-    const roadsJson = (await import('@/data/packs/geo/karolinska/roads.json')).default as unknown as RoadCollection;
+describe('the road graph of the SUS pack (SPEC.md § 12.3)', () => {
+  it('lets the Lund site reach most of the graph: it snaps to a vertex a search can leave', async () => {
+    const roadsJson = (await loadGeoData('sus')).roads; // the OpenStreetMap file when it has been fetched, else the fixture
     const g = buildRoadGraph(roadsJson);
-    const s = snapToGraph(g, 59.3522, 18.0322);
+    const lund = homePacks.sus.sites.find((x) => x.id === 'suslund')!;
+    const s = snapToGraph(g, lund.lat, lund.lng);
     expect(s.unsnapped).toBe(false);
     const reached = dijkstra(g, [s.vertex]).dist.filter(Number.isFinite).length;
     expect(reached / g.vertexCount).toBeGreaterThan(0.8);

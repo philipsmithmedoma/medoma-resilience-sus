@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, it } from 'vitest';
-import { KAROLINSKA_PACK as pack } from '@/test/packs';
+import { SUS_PACK as pack } from '@/test/packs';
 import { NO_DISRUPTIONS, impact, teamDistances, type Disruptions } from './reachability';
 import { loadRoadModel, type RoadModel } from './roadModel';
 
@@ -7,12 +7,13 @@ let model: RoadModel;
 beforeAll(async () => {
   model = await loadRoadModel(pack);
 });
-const BOTH: Array<'solna' | 'huddinge'> = ['solna', 'huddinge'];
+const BOTH: string[] = ['suslund', 'susmalmo'];
 const dis = (roads: string[]): Disruptions => ({ ...NO_DISRUPTIONS, blockedRoads: new Set(roads) });
-const CROSSINGS = ['Essingeleden', 'Västerbron', 'Centralbron', 'Munkbroleden', 'Skeppsbron', 'Söderledstunneln', 'Katarinavägen', 'Stadsgårdsleden'];
+/** The roads linking Lund and Malmö (DECISIONS.md entry 17). The real data has more links, so claims about this set alone are fixture-only. */
+const CROSSINGS = ['E22'];
 const inZone = (zone: string) => pack.homePatients.filter((p) => p.zone === zone);
 
-describe('teams on the road graph (SPEC.md § 14.2)', () => {
+describe('teams on the road graph (SPEC.md § 8)', () => {
   it('snaps every team base to the graph and teamDistances gives the baseline distances from it', () => {
     for (const team of pack.homeTeams) {
       expect(model.teams[team.id].unsnapped, team.id).toBe(false);
@@ -25,23 +26,25 @@ describe('teams on the road graph (SPEC.md § 14.2)', () => {
   it('a blocked road lengthens or removes distances from a base, never shortens them', () => {
     const team = pack.homeTeams[0];
     const flags = new Uint8Array(model.graph.ways.length);
-    model.graph.ways.forEach((w, i) => (flags[i] = w.name === 'Essingeleden' ? 1 : 0));
+    model.graph.ways.forEach((w, i) => (flags[i] = w.name === 'E22' ? 1 : 0));
     const open = teamDistances(model.graph, team);
     const closed = teamDistances(model.graph, team, flags);
     for (let v = 0; v < open.length; v++) expect(closed[v]).toBeGreaterThanOrEqual(open[v]);
   });
 
-  it('at baseline the nearest team of a patient is the team of the zone they live in (Solna, Innerstaden, Söderort, Botkyrka)', () => {
+  it('at baseline the nearest team of a patient is the team of the area they live in', () => {
     const r = impact(pack, NO_DISRUPTIONS, BOTH, model);
-    // The road graph has main roads only, so a base on a ramp can be far by road from a patient close by in a straight line:
-    // the zone's own team is the nearest for most of its patients (all of Botkyrka), and never a team from the other side of the water.
     const share = (zone: string, team: string) => inZone(zone).filter((p) => r.teamReach.get(p.id)?.nearestTeam === team).length / inZone(zone).length;
-    expect(share('solna', 'asih-nord')).toBeGreaterThanOrEqual(0.9);
-    expect(share('innerstaden', 'asih-city')).toBeGreaterThanOrEqual(0.7);
-    expect(share('botkyrka', 'asih-sydvast')).toBe(1);
-    const nearest = (zone: string) => new Set(inZone(zone).map((p) => r.teamReach.get(p.id)?.nearestTeam));
-    for (const t of nearest('soderort')) expect(['asih-city', 'asih-syd']).toContain(t);
-    expect(nearest('soderort').has('asih-syd')).toBe(true);
+    expect(share('lund', 'shh-lund')).toBeGreaterThanOrEqual(0.9);
+    expect(share('eslov', 'shh-lund')).toBeGreaterThanOrEqual(0.9);
+    expect(share('malmo', 'shh-malmo')).toBeGreaterThanOrEqual(0.9);
+    expect(share('trelleborg', 'shh-malmo')).toBeGreaterThanOrEqual(0.9);
+  });
+
+  it('fixture: at baseline every patient has their own team as the nearest', (ctx) => {
+    if (model.source !== 'fixture') ctx.skip(); // on real roads a patient at the edge of an area can be nearer the other base
+    const r = impact(pack, NO_DISRUPTIONS, BOTH, model);
+    for (const p of pack.homePatients) expect(pack.homeTeams.find((t) => t.id === r.teamReach.get(p.id)?.nearestTeam)?.name, p.id).toBe(p.team);
   });
 
   it('at baseline at least 95 % of the patients are reached by at least one team, and nobody is reassigned', () => {
@@ -52,18 +55,19 @@ describe('teams on the road graph (SPEC.md § 14.2)', () => {
     expect(r.reassignments).toEqual([]);
   });
 
-  it('blocking the crossing set of § 12.4 makes the Söderort patients reachable only by ASIH Syd and ASIH Sydväst', () => {
+  it('fixture: blocking the crossing set makes the Malmö-side patients reachable only by Sjukhus hemma Malmö', (ctx) => {
+    if (model.source !== 'fixture') ctx.skip(); // the real data has more links between the halves than the crossing set names
     const r = impact(pack, dis(CROSSINGS), BOTH, model);
-    // A patient on an Essingeleden ramp has no road left (main-road graph) and is reached by no team: the claim is about the others.
-    const south = inZone('soderort').filter((p) => (r.teamReach.get(p.id)?.reachableBy.length ?? 0) > 0);
-    expect(south.length).toBeGreaterThan(0);
-    for (const p of south) expect([...r.teamReach.get(p.id)!.reachableBy].sort(), p.id).toEqual(['asih-syd', 'asih-sydvast']);
-    // The nearest of the two is one of them, and the north teams cannot cross.
-    for (const p of south) expect(['asih-syd', 'asih-sydvast']).toContain(r.teamReach.get(p.id)!.nearestTeam);
+    const malmoSide = pack.homePatients.filter((p) => p.team === 'Sjukhus hemma Malmö' && (r.teamReach.get(p.id)?.reachableBy.length ?? 0) > 0);
+    expect(malmoSide.length).toBeGreaterThan(0);
+    for (const p of malmoSide) {
+      expect([...r.teamReach.get(p.id)!.reachableBy], p.id).toEqual(['shh-malmo']);
+      expect(r.teamReach.get(p.id)!.nearestTeam).toBe('shh-malmo');
+    }
   });
 
   it('counts the patients whose own team cannot reach them and those another team reaches, and suggests the nearest', () => {
-    for (const roads of [CROSSINGS, ['Essingeleden'], ['Södra länken'], [...CROSSINGS, 'Södra länken']]) {
+    for (const roads of [CROSSINGS, ['Södra vägen'], ['Trafikplats Lund Södra'], ['Inre Ringvägen'], [...CROSSINGS, 'Väg 108']]) {
       const r = impact(pack, dis(roads), BOTH, model);
       const { teamCannotReach: n, teamReassignable: m } = r.summary;
       expect(m).toBeLessThanOrEqual(n);
@@ -78,14 +82,14 @@ describe('teams on the road graph (SPEC.md § 14.2)', () => {
     }
   });
 
-  it('fixture: closing Solnavägen cuts 15 patients off from their own team, and all 15 are reachable by another', (ctx) => {
+  it('fixture: closing Södra vägen cuts 30 patients off from their own team, and all 30 are reachable by another', (ctx) => {
     if (model.source !== 'fixture') ctx.skip(); // the count belongs to the hand-written fixture, not to OpenStreetMap
-    const r = impact(pack, dis(['Solnavägen']), BOTH, model);
-    expect(r.summary).toMatchObject({ teamCannotReach: 15, teamReassignable: 15 });
+    const r = impact(pack, dis(['Södra vägen']), BOTH, model);
+    expect(r.summary).toMatchObject({ teamCannotReach: 30, teamReassignable: 30 });
   });
 
   it('rows carry reachableBy and nearestTeam, and teams are untouched by power and water outages', () => {
-    const r = impact(pack, { ...NO_DISRUPTIONS, powerOutZones: new Set(['huddinge']) }, BOTH, model);
+    const r = impact(pack, { ...NO_DISRUPTIONS, powerOutZones: new Set(['lund']) }, BOTH, model);
     const row = r.rows[0];
     expect(row.reachableBy?.length).toBeGreaterThan(0);
     expect(row.nearestTeam).toBe(r.teamReach.get(row.patient.id)!.nearestTeam);
