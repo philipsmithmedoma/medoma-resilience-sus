@@ -45,7 +45,7 @@ export function NodeMap({ sites, className, scrollWheelZoom = false, fitPadding 
   // Leaflet paints SVG paths with literal colours: resolve the tokens for the current theme.
   useTheme((s) => s.theme);
   const GREEN = cssColor('--color-green');
-  const fitPoints = useMemo(() => homeFitPoints(home), [home]);
+  const fitPoints = useMemo(() => homeFitPoints(home, sites), [home, sites]);
   const attribution = t('HOME.tileAttribution');
   return (
     <MapContainer center={[59.35, 18.0]} zoom={9} scrollWheelZoom={scrollWheelZoom} className={cn('h-full w-full', className)} attributionControl>

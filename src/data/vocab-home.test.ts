@@ -84,9 +84,10 @@ describe('vocab parity for Hospital at Home (SPEC.md § 11.7 batch 5)', () => {
     expect([sv.HOME.impact.headline, en.HOME.impact.headline]).toEqual(['{n} av {total} patienter påverkade', '{n} of {total} patients affected']);
   });
 
-  it('puts the module first among the preparedness modules in the nav', () => {
-    expect(MODULE_DEFS.map((m) => m.key).slice(0, 2)).toEqual(['home', 'incident']);
-    expect(MODULE_DEFS[0].path).toBe('/home');
-    expect(PLATFORM_DEFS.map((m) => m.path)).toEqual(['/patients', '/activities', '/planning', '/employees', '/reporting']);
+  it('puts Översikt, Sjukhus hemma, Incident and Beroenden in the preparedness nav and the seven platform modules in the platform\'s order', () => {
+    expect(MODULE_DEFS.map((m) => [m.key, m.path])).toEqual([['overview', '/overview'], ['home', '/home'], ['incident', '/incident'], ['dependencies', '/dependencies']]);
+    expect(PLATFORM_DEFS.map((m) => m.path)).toEqual(['/patients', '/activities', '/planning', '/capacity', '/employees', '/equipment', '/reporting']);
+    expect(PLATFORM_DEFS.map((m) => sv.MODULES[m.key])).toEqual(['Patienter', 'Aktiviteter', 'Planering', 'Kapacitet', 'Medarbetare', 'Utrustning', 'Rapportering']);
+    expect(PLATFORM_DEFS.map((m) => en.MODULES[m.key])).toEqual(['Patients', 'Activities', 'Planning', 'Capacity', 'Employees', 'Equipment', 'Reporting']);
   });
 });

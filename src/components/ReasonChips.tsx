@@ -16,6 +16,7 @@ export function ReasonChips({ row, withGrounds = true }: { row: ImpactRow; withG
       {row.reasons.map((r) => (
         <Chip key={r} tone={REASON_TONE[r]}>
           {reasons[r]}
+          {r === 'detour' && row.extraKm != null ? ` ${t('HOME.impact.plusKm', { n: row.extraKm })}` : ''}
         </Chip>
       ))}
       {withGrounds ? row.grounds.map((g) => (

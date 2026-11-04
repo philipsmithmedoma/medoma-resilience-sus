@@ -10,7 +10,7 @@ interface RoadsLayerProps {
   blocked: ReadonlySet<number>;
   /** In roads mode a tap on a segment calls `onTap`; otherwise the roads take no clicks. */
   interactive: boolean;
-  onTap?: (props: RoadProps) => void;
+  onTap?: (props: RoadProps, at: { lat: number; lng: number }) => void;
 }
 
 const WIDTH: Record<string, number> = {
@@ -57,7 +57,7 @@ export function RoadsLayer({ roads, blocked, interactive, onTap }: RoadsLayerPro
     if (interactive) {
       layer.on('click', (e: L.LeafletMouseEvent) => {
         L.DomEvent.stopPropagation(e);
-        tapRef.current?.(((e.propagatedFrom as L.Layer & { feature: RoadFeature }).feature).properties);
+        tapRef.current?.(((e.propagatedFrom as L.Layer & { feature: RoadFeature }).feature).properties, { lat: e.latlng.lat, lng: e.latlng.lng });
       });
       layer.on('mousemove', (e: L.LeafletMouseEvent) => {
         const p = ((e.propagatedFrom as L.Layer & { feature: RoadFeature }).feature).properties;

@@ -12,7 +12,7 @@ import { SubTabs } from '@/components/SubTabs';
 import { useHomeImpact } from './useHomeImpact';
 import { useHomeGeo } from './useHomeGeo';
 import { DemoScenarios } from './DemoScenarios';
-import { HypothesisCards, RegisterPanel } from './PanelExtras';
+import { HypothesisCards, RegisterPanel, SilentSummary } from './PanelExtras';
 
 /** Sjukhus hemma (SPEC.md § 6): patient list (380 px), panel (320 px) and the map; the panel ends with the demo scenarios. */
 export function HomePage() {
@@ -54,6 +54,7 @@ export function HomePage() {
           {tab === 'panel' ? (
             <>
               {panel}
+              {active ? null : <SilentSummary silent30={impact.summary.silent30} />}
               <HypothesisCards />
               <RegisterPanel />
               <DemoScenarios />

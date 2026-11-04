@@ -400,3 +400,21 @@ export function waysNearPoint(g: RoadGraph, lat: number, lng: number, radiusM: n
   }
   return [...near];
 }
+
+/** Radius of a tap on a road: it closes the same road within this distance of the tapped point (SPEC.md § 6.1). */
+export const TAP_RADIUS_M = 250;
+
+/**
+ * OSM ids of the ways a tap closes (SPEC.md § 6.1): the tapped way and every way that shares its name or its ref and lies within
+ * 250 m of the tapped point, so that both carriageways close. A way with neither name nor ref closes alone.
+ */
+export function roadsAtTap(g: RoadGraph, tapped: Pick<RoadProps, 'id' | 'name' | 'ref'>, lat: number, lng: number, radiusM = TAP_RADIUS_M): number[] {
+  const name = tapped.name ? norm(tapped.name) : null;
+  const ref = tapped.ref ? norm(tapped.ref) : null;
+  const ids = new Set<number>([tapped.id]);
+  for (const i of waysNearPoint(g, lat, lng, radiusM)) {
+    const w = g.ways[i];
+    if ((name !== null && w.name && norm(w.name) === name) || (ref !== null && w.ref && norm(w.ref) === ref)) ids.add(w.id);
+  }
+  return [...ids].sort((a, b) => a - b);
+}

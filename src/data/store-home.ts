@@ -3,7 +3,7 @@
 // to the audit log through logEntry() (by way of logHome, which marks the entry as this module's) like every other action.
 import type { StateCreator } from 'zustand';
 import type { AppStore } from './store';
-import type { DataPack, HomeDisruption, HomeDisruptionPreset, HomePackId, HomeVisit, HomeWork, HomeWorkStatus, TeamId, HomeDisruptionKind, HomeDisruptionSource, HomeDisruptionTargetKind, InfraLayer, InfraNode, LocalizedText, ZoneId } from './types';
+import type { DataPack, Handover, HomeDisruption, HomeDisruptionPreset, HomePackId, HomeVisit, HomeWork, HomeWorkStatus, TeamId, HomeDisruptionKind, HomeDisruptionSource, HomeDisruptionTargetKind, InfraLayer, InfraNode, LocalizedText, ZoneId } from './types';
 import { lt, same, t } from '@/lib/i18n';
 import { CURRENT_USER, SYSTEM_ACTOR } from './vocab';
 import { deriveSets, expiredIds } from '@/lib/disruptions';
@@ -15,8 +15,8 @@ import { getAppliedNodes } from '@/lib/osmNodes';
 import { homeSiteName, homeSitesInScope } from '@/lib/home-sites';
 import { buildDataPack, homePackIdOf, homePacks } from './packs/home-packs';
 import { defaultScopeOf, packOfScope } from '@/lib/scope';
-import { blockedFlags, disruptionCount, impact } from '@/lib/reachability';
-import { waysNearPoint } from '@/lib/roadGraph';
+import { blockedFlags, disruptionCount, impact, priorityTier } from '@/lib/reachability';
+import { roadsAtTap, waysNearPoint } from '@/lib/roadGraph';
 import { hypotheses } from '@/lib/signal';
 
 export type HomeLayerKey = InfraLayer | 'patients' | 'tele';
@@ -60,6 +60,8 @@ export interface HomeState {
   work: Record<string, HomeWork>;
   /** Today's visits; Move visit changes a slot or cancels one (SPEC.md § 14.3). */
   visits: HomeVisit[];
+  /** The patients marked Ta in, in order (SPEC.md § 7); kept when the disruption ends. */
+  handovers: Handover[];
   /** The infrastructure node the panel shows; the map dims everything it is not linked to. */
   selectedNode: string | null;
   /** In roads mode a tap blocks every way that shares the tapped way's name (view state). */
@@ -78,6 +80,8 @@ export interface HomeActions {
   setHomeMode: (mode: HomeMode) => void;
   toggleBlockedNode: (id: string) => void;
   toggleBlockedWay: (id: string) => void;
+  /** A tap on a road segment (SPEC.md § 6.1): closes every way that shares the tapped way's name or ref within 250 m of the point, or opens them if the tapped way is closed. */
+  closeRoadAt: (props: { id: number; name: string | null; ref: string | null }, at: { lat: number; lng: number }) => void;
   toggleBlockedRoad: (key: string) => void;
   setWholeRoad: (on: boolean) => void;
   /** The geometry has loaded; `infraNodes` are the pack's nodes with their OpenStreetMap positions. */
@@ -165,6 +169,7 @@ export function initialHome(pack: Pick<DataPack, 'infraNodes'> & Partial<Pick<Da
     siteCutoffSince: null,
     heatExtraHours: new Map(),
     work: {},
+    handovers: [],
     visits: structuredClone(pack.homeVisits ?? []),
     selectedNode: null,
     wholeRoad: false,
@@ -364,6 +369,30 @@ export const createHomeSlice: StateCreator<AppStore, [], [], HomeActions> = (set
       reconcile();
     },
 
+    closeRoadAt: (props, at) => {
+      const model = getRoadModel();
+      const { pack, home } = get();
+      const open = home.disruptions.find((d) => d.endedAt === null && d.kind === 'road' && (d.targetKind === 'ways' ? d.target.split(',').includes(String(props.id)) : d.targetKind === 'way' && d.target === String(props.id)));
+      if (open) {
+        endRecord((d) => d === open, 'manual');
+        logHome(t('AUDIT.homeUnblocked'), lt(open.label), detail());
+        updateCutoff();
+        reconcile();
+        return;
+      }
+      const ids = model ? roadsAtTap(model.graph, props, at.lat, at.lng) : [props.id];
+      // "<name> vid <nearest locality or zone>": the road's name (or ref) and the zone whose centre is nearest the tap.
+      const nearest = [...pack.homeZones].sort((a, b) => haversineM(at.lat, at.lng, a.lat, a.lng) - haversineM(at.lat, at.lng, b.lat, b.lng))[0];
+      const roadName = props.name ?? props.ref ?? `OSM ${props.id}`;
+      const label: LocalizedText = nearest
+        ? { sv: t('HOME.disruption.roadAt', { name: roadName, place: nearest.name.sv }, 'sv'), en: t('HOME.disruption.roadAt', { name: roadName, place: nearest.name.en }, 'en') }
+        : same(roadName);
+      addRecord({ kind: 'road', target: ids.join(','), targetKind: 'ways', source: 'map', label });
+      logHome(t('AUDIT.homeBlocked'), lt(label), detail());
+      updateCutoff();
+      reconcile();
+    },
+
     toggleBlockedRoad: (key) => {
             const blocking = toggleRecord({ kind: 'road', target: key, targetKind: 'road', source: 'map' });
       logHome(blocking ? t('AUDIT.homeBlocked') : t('AUDIT.homeUnblocked'), key.split('|')[0], detail());
@@ -542,6 +571,8 @@ export const createHomeSlice: StateCreator<AppStore, [], [], HomeActions> = (set
       const { pack, home, clock } = get();
       const row = impact(pack, home, scopeSites(), undefined, clock).rows.find((r) => r.patient.id === patientId);
       setWork(patientId, { bringInSite: nearest.id, bringInAt: clock, bringInReasons: row ? row.reasons : [] }, 'Planned');
+      const handover: Handover = { id: get().nextId('ho'), patientId, at: clock, site: nearest.id, reasons: row ? row.reasons : [], priority: row ? priorityTier(row) : null };
+      set((s) => ({ home: { ...s.home, handovers: [...s.home.handovers.filter((h) => h.patientId !== patientId), handover] } }));
       logHome(t('AUDIT.homeBringIn'), nameOf(patientId), homeSiteName(packId, nearest.id), undefined, patientId);
     },
 

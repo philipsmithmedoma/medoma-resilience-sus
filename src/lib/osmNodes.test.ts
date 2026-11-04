@@ -86,11 +86,30 @@ describe('power lines (SPEC.md § 12.5)', () => {
     expect(voltageLabel('400000;220000')).toBe('400/220 kV');
     expect(voltageLabel(null)).toBe('');
   });
-  it('turns the lines of power.json into labelled polylines in [lat, lng] order', () => {
+  it('turns the lines of power.json into labelled polylines in [lat, lng] order, one line per connected set of ways, with its label on the line', () => {
     const lines = powerLines(geo);
     expect(lines.length).toBeGreaterThan(1);
-    expect(lines.every((l) => l.label.endsWith('kV') && l.positions.length >= 2 && l.positions[0][0] > 50 && l.positions[0][0] < 70)).toBe(true);
+    expect(lines.every((l) => l.label.endsWith('kV') && l.segments.every((s) => s.length >= 2 && s[0][0] > 50 && s[0][0] < 70))).toBe(true);
     expect(lines.find((l) => l.label === '400 kV')!.highest).toBe(400);
+    for (const l of lines) expect(l.segments.some((s) => s.some((p) => p[0] === l.labelAt[0] && p[1] === l.labelAt[1]))).toBe(true);
+  });
+  it('draws only 400 and 220 kV, and merges ways that share an end point and a voltage into one line with one label', () => {
+    const line = (id: number, voltage: string, pts: Array<[number, number]>) => ({ type: 'Feature' as const, properties: { id, power: 'line', name: null, operator: null, voltage }, geometry: { type: 'LineString' as const, coordinates: pts.map(([a, b]) => [b, a]) } });
+    const fake = {
+      power: {
+        type: 'FeatureCollection' as const,
+        features: [
+          line(1, '400000', [[59.1, 18.0], [59.2, 18.1]]),
+          line(2, '400000', [[59.2, 18.1], [59.3, 18.2]]), // continues line 1: one line
+          line(3, '400000', [[59.5, 18.5], [59.6, 18.6]]), // a separate 400 kV line
+          line(4, '220000', [[59.2, 18.1], [59.25, 18.3]]), // another tier: not merged with the 400 kV ways
+          line(5, '70000', [[59.0, 18.0], [59.05, 18.05]]), // 70 kV: not drawn
+        ],
+      },
+    } as unknown as Parameters<typeof powerLines>[0];
+    const lines = powerLines(fake);
+    expect(lines.map((l) => [l.label, l.segments.length]).sort()).toEqual([['220 kV', 1], ['400 kV', 1], ['400 kV', 2]]);
+    expect(lines.some((l) => l.highest < 220)).toBe(false);
   });
   it('the hand-drawn el link between nodes is gone; the off-map arrows stay', () => {
     const el = pack.infraLinks.filter((l) => l.layer === 'el');

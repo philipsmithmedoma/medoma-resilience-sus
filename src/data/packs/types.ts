@@ -288,8 +288,8 @@ export interface HomeDisruptionPreset {
 /** A disruption as a record in time (SPEC.md § 13.2); the blocked and outage sets are derived from the active ones. */
 export type HomeDisruptionKind = 'road' | 'power' | 'water' | 'tele' | 'heat' | 'cold' | 'supplier';
 export type HomeDisruptionSource = 'map' | 'preset' | 'message' | 'hypothesis' | 'panel';
-/** What `target` names: an OSM way id, a road key (`name` or `name|ref`), a road InfraNode id, a ZoneId, or the pack (a supplier). */
-export type HomeDisruptionTargetKind = 'way' | 'road' | 'node' | 'zone' | 'pack';
+/** What `target` names: an OSM way id, several OSM way ids joined by a comma (a tap on a road), a road key (`name` or `name|ref`), a road InfraNode id, a ZoneId, or the pack (a supplier). */
+export type HomeDisruptionTargetKind = 'way' | 'ways' | 'road' | 'node' | 'zone' | 'pack';
 export type HomeDisruptionEnd = 'manual' | 'expected' | 'reset' | 'replaced';
 export interface HomeDisruption {
   id: string;
@@ -306,6 +306,19 @@ export interface HomeDisruption {
   endReason: HomeDisruptionEnd | null;
   /** Free text, e.g. the id of the message the disruption was created from (SPEC.md § 13.4). */
   note?: string | null;
+}
+
+/** A patient marked "Ta in": one row of the list "Överlämningar till sjukhus" and one record of the export file (SPEC.md § 7). */
+export interface Handover {
+  id: string;
+  patientId: string;
+  /** Clock minute of the decision. */
+  at: number;
+  /** The receiving site: the nearest site in scope. */
+  site: string;
+  /** The reason codes that applied (`ImpactReason`s) and the priority tier of the row then, or null when the patient was not a row. */
+  reasons: string[];
+  priority: number | null;
 }
 
 // Teams, visits and the work on affected patients (SPEC.md § 13.3, § 14.2, § 14.3)

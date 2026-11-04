@@ -24,7 +24,7 @@ export function HomeMap({ impact, geo }: { impact: Impact; geo: GeoData | null }
   const lines = useMemo(() => (geo ? powerLines(geo) : []), [geo]);
   const selectHomeNode = useStore((s) => s.selectHomeNode);
   const toggleBlockedNode = useStore((s) => s.toggleBlockedNode);
-  const toggleBlockedWay = useStore((s) => s.toggleBlockedWay);
+  const closeRoadAt = useStore((s) => s.closeRoadAt);
   const toggleBlockedRoad = useStore((s) => s.toggleBlockedRoad);
   const togglePowerOut = useStore((s) => s.togglePowerOut);
   const toggleWaterOut = useStore((s) => s.toggleWaterOut);
@@ -52,12 +52,12 @@ export function HomeMap({ impact, geo }: { impact: Impact; geo: GeoData | null }
   }, [impact]);
   // A tap on a segment closes that way, or with "block whole road" every way with the same name (SPEC.md § 12.4).
   const onTapWay = useCallback(
-    (p: RoadProps) => {
+    (p: RoadProps, at: { lat: number; lng: number }) => {
       const key = home.wholeRoad ? roadKey(p) : null;
       if (key) toggleBlockedRoad(key);
-      else toggleBlockedWay(String(p.id));
+      else closeRoadAt(p, at);
     },
-    [home.wholeRoad, toggleBlockedRoad, toggleBlockedWay],
+    [home.wholeRoad, toggleBlockedRoad, closeRoadAt],
   );
   const blockedWayIds = useMemo(() => {
     const model = getRoadModel();

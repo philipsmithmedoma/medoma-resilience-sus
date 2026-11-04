@@ -33,6 +33,9 @@
 
   /* Semantic */
   --color-red: #e33026;
+  /* The preparedness indicator: white text on this fill has a contrast of at least 4.5:1 in both themes. */
+  --color-indicator-bg: #c42a21;
+  --color-power-400: #d9b310;
   --color-red-icon: #eb5757;
   --color-red-light: #fdeeee;
   --color-red-pill: #fac4c4;
@@ -161,6 +164,7 @@
   --color-green-pill: color-mix(in srgb, var(--color-green) 22%, transparent);
   --color-teal: #3fc0d8;
   --color-olive: #d3c55a;
+  --color-power-400: #e6c53a;
 
   --color-chip-red-bg: color-mix(in srgb, var(--color-red) 16%, transparent);
   --color-chip-red-border: color-mix(in srgb, var(--color-red) 60%, transparent);
