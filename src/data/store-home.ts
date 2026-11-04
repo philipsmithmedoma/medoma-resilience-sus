@@ -3,7 +3,7 @@
 // to the audit log through logEntry() (by way of logHome, which marks the entry as this module's) like every other action.
 import type { StateCreator } from 'zustand';
 import type { AppStore } from './store';
-import type { DataPack, HomeDisruption, HomeDisruptionPreset, HomePackId, HomeVisit, HomeWork, HomeWorkStatus, TeamId, HomeDisruptionKind, HomeDisruptionSource, HomeDisruptionTargetKind, InfraLayer, InfraNode, LocalizedText, ZoneId } from './types';
+import type { DataPack, Handover, HomeDisruption, HomeDisruptionPreset, HomePackId, HomeVisit, HomeWork, HomeWorkStatus, TeamId, HomeDisruptionKind, HomeDisruptionSource, HomeDisruptionTargetKind, InfraLayer, InfraNode, LocalizedText, ZoneId } from './types';
 import { lt, same, t } from '@/lib/i18n';
 import { CURRENT_USER, SYSTEM_ACTOR } from './vocab';
 import { deriveSets, expiredIds } from '@/lib/disruptions';
@@ -15,7 +15,7 @@ import { getAppliedNodes } from '@/lib/osmNodes';
 import { homeSiteName, homeSitesInScope } from '@/lib/home-sites';
 import { buildDataPack, homePackIdOf, homePacks } from './packs/home-packs';
 import { defaultScopeOf, packOfScope } from '@/lib/scope';
-import { blockedFlags, disruptionCount, impact } from '@/lib/reachability';
+import { blockedFlags, disruptionCount, impact, priorityTier } from '@/lib/reachability';
 import { waysNearPoint } from '@/lib/roadGraph';
 import { hypotheses } from '@/lib/signal';
 
@@ -60,6 +60,8 @@ export interface HomeState {
   work: Record<string, HomeWork>;
   /** Today's visits; Move visit changes a slot or cancels one (SPEC.md § 14.3). */
   visits: HomeVisit[];
+  /** The patients marked Ta in, in order (SPEC.md § 7); kept when the disruption ends. */
+  handovers: Handover[];
   /** The infrastructure node the panel shows; the map dims everything it is not linked to. */
   selectedNode: string | null;
   /** In roads mode a tap blocks every way that shares the tapped way's name (view state). */
@@ -165,6 +167,7 @@ export function initialHome(pack: Pick<DataPack, 'infraNodes'> & Partial<Pick<Da
     siteCutoffSince: null,
     heatExtraHours: new Map(),
     work: {},
+    handovers: [],
     visits: structuredClone(pack.homeVisits ?? []),
     selectedNode: null,
     wholeRoad: false,
@@ -542,6 +545,8 @@ export const createHomeSlice: StateCreator<AppStore, [], [], HomeActions> = (set
       const { pack, home, clock } = get();
       const row = impact(pack, home, scopeSites(), undefined, clock).rows.find((r) => r.patient.id === patientId);
       setWork(patientId, { bringInSite: nearest.id, bringInAt: clock, bringInReasons: row ? row.reasons : [] }, 'Planned');
+      const handover: Handover = { id: get().nextId('ho'), patientId, at: clock, site: nearest.id, reasons: row ? row.reasons : [], priority: row ? priorityTier(row) : null };
+      set((s) => ({ home: { ...s.home, handovers: [...s.home.handovers.filter((h) => h.patientId !== patientId), handover] } }));
       logHome(t('AUDIT.homeBringIn'), nameOf(patientId), homeSiteName(packId, nearest.id), undefined, patientId);
     },
 

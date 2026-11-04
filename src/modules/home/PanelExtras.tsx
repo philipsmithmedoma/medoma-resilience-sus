@@ -19,6 +19,15 @@ export function useHypotheses() {
   }, [pack, home, clock]);
 }
 
+/** "N utan kontakt de senaste 30 min": the signal that comes first, shown whether or not a disruption is registered. */
+export function SilentSummary({ silent30 }: { silent30: number }) {
+  return (
+    <p className="border-t border-border px-4 py-3 text-body" aria-live="polite">
+      {t('HOME.impact.facts.silent30', { n: silent30 })}
+    </p>
+  );
+}
+
 /** "Misstänkt störning i <zon>" with the buttons that register it; nothing is registered automatically. */
 export function HypothesisCards() {
   const list = useHypotheses();

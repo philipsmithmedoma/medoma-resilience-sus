@@ -37,7 +37,7 @@ function ToggleChip({ pressed, onClick, children, disabled, title }: { pressed: 
 }
 
 
-function PatientRow({ p, row, expanded, onToggle }: { p: HomePatient; row?: ImpactRow; expanded: boolean; onToggle: () => void }) {
+export function PatientRow({ p, row, expanded, onToggle }: { p: HomePatient; row?: ImpactRow; expanded: boolean; onToggle: () => void }) {
   const reasons = tm('HOME.impact.reasons');
   useStore((s) => s.home.geoReady); // the snap result exists once the geometry has loaded
   const noRoad = getRoadModel()?.patients.get(p.id)?.unsnapped === true;

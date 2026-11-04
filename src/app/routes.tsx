@@ -6,6 +6,8 @@ import { DependenciesPage } from '@/modules/dependencies/DependenciesPage';
 import { HomePage } from '@/modules/home/HomePage';
 import { CallListPage } from '@/modules/home/CallListPage';
 import { PlanningPage } from '@/modules/home/PlanningPage';
+import { CapacityPage } from '@/modules/capacity/CapacityPage';
+import { EquipmentPage } from '@/modules/equipment/EquipmentPage';
 import { PatientsPage } from '@/modules/home/PatientsPage';
 import { PlatformStubPage } from '@/modules/home/PlatformStubPage';
 import { PLATFORM_DEFS } from '@/data/vocab';
@@ -26,8 +28,10 @@ export const routes: RouteDef[] = [
   { path: '/home/ringlista', element: <CallListPage /> },
   { path: '/incident', element: <IncidentPage /> },
   { path: '/incident/kanaler/:channelId', element: <ChannelPage /> },
-  // Patients and Planning are real pages in both modes (SPEC.md § 8); the other platform modules are stubs.
+  // Patients, Planning, Capacity and Equipment are real pages in both modes (SPEC.md § 8); the other platform modules are stubs.
   { path: '/patients', element: <PatientsPage /> },
   { path: '/planning', element: <PlanningPage /> },
-  ...PLATFORM_DEFS.filter((m) => m.key !== 'patients' && m.key !== 'planning').map((m) => ({ path: m.path, element: <PlatformStubPage module={m} /> })),
+  { path: '/capacity', element: <CapacityPage /> },
+  { path: '/equipment', element: <EquipmentPage /> },
+  ...PLATFORM_DEFS.filter((m) => !['patients', 'planning', 'capacity', 'equipment'].includes(m.key)).map((m) => ({ path: m.path, element: <PlatformStubPage module={m} /> })),
 ];

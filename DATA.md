@@ -181,3 +181,33 @@ Medoma Center runs in the hospital's control centre on the hospital's backup pow
 | S-E4 | Stability overviews for antibiotics in elastomeric pumps | heat-sensitive set: meropenem, cefepim, ceftazidim |
 | S-E5 | PTS, requirements on backup power in mobile networks | 1 h urban, 4 h rural |
 | S-E6 | WARD 24/7, supplier information | no published battery times; to verify |
+
+### 5.9 Capacity (synthetic)
+
+Shifts per team and day: four nurses day, two evening, one night, one doctor day, 8 h each (prompt). Today's home visits are the pack's visits (before 15:00 a day-shift visit, later an evening visit); later days a share of the enrolled patients (about 40 %, three quarters on the day shift). Video calls, phone calls, clinic visits and administrative tasks are drawn deterministically per team, day, profession and shift within these ranges (illustrative, written for the prototype, not data from any service): nurse day clinic 1–3, video 2–5, administrative 3–6, phone 4–8; nurse evening 0–1, 1–2, 1–2, 2–4; nurse night video 0–1, administrative 0–1, phone 0–2; doctor day 2–4, 3–6, 2–4, 2–4. Planned admission 2–6 a day, assessment is the number of patients under assessment. The extra driving time of a shift is the extra kilometres of the detours of its affected visits divided by 40 km/h.
+
+## 6. Dependencies
+
+The rows of the page `/dependencies` (SPEC § 10). Texts, times and sources are those of the table; the status of a row is computed from the active disruptions and the clock (`src/lib/dependencies.ts`). `source` keys refer to § 5.8 and § 2; "assumption" and "illustrative" mark times that no source gives (confidence `estimate` and `illustrative`). PTS's backup power requirement (1 h urban, 4 h rural) and the stationary concentrator without a battery are the sourced anchors.
+
+| Function (sv / en) | Depends on | Fails at | After | Fallback | Source |
+|---|---|---|---|---|---|
+| Medoma Center | The hospital's backup power | – | – | – | Not dependent: hospital backup power (§ 5.7) |
+| Medoma Go / Medoma Go | Mobile network, the phone or hub battery | The mobile network falls | 1 h urban, 4 h outside towns after a power outage (PTS) | Call list, visits | S-E5 |
+| Medoma Care / Medoma Care | Mobile network, charging of the hub and the phone | Power outage in the home (charging stops) or the mobile network falls | Hub −4% and phone −6% an hour; the network after 1 h urban, 4 h outside towns | Call list, visits | S-E5 |
+| Kontinuerlig monitorering / Continuous monitoring | Sensor, phone or hub, mobile network | The mobile network falls (the data goes dark) | 1 h urban, 4 h outside towns after a power outage | Visit within 2 h or bring in | S-E2, S-E5 |
+| Punktmätningar / Spot checks | Phone or hub, mobile network | The battery runs out or the mobile network falls | Battery 12–24 h; the network after 1 h urban, 4 h outside towns | Phone call while the network is up, otherwise a visit | S-E2 |
+| Stationär syrgaskoncentrator / Stationary oxygen concentrator | Electricity (310–350 W), no battery | Power outage | At once | Reserve tubes 4–10 h (illustrative), then bring in | S-E1 |
+| Bärbar syrgaskoncentrator / Portable oxygen concentrator | Own batteries (40–90 W) | Power outage | Battery 2–5 h (illustrative) | Reserve tubes 4–10 h, then bring in | S-E1 |
+| Elastomerisk pump (värme) / Elastomeric pump (heat) | Temperature; the pump needs no electricity | Heatwave | 6 h for heat-sensitive antibiotics (meropenem, cefepim, ceftazidim), 12 h for the others (assumption) | Cooling pouch, shorter infusion (12 h extra), bring in | S-E4 |
+| Elastomerisk pump (kylkedja och leverans) / Elastomeric pump (cold chain and delivery) | Pharmacy delivery of infusers, the road to the site | Every road within 250 m of the site closed, or a supplier disruption | When the stock is gone: 3 days (illustrative) | Bring in | illustrative |
+| Kylförvarade läkemedel i hemmet / Refrigerated medicines at home | Electricity for the fridge at home | Power outage | About 4 h (assumption, illustrative) | Cool bag, move the medicine, bring in | assumption |
+| Värme i hemmet / Heating at home | Electricity for heating | Cold together with a power outage | 6 h (assumption); 80 and older become critical | Bring in | assumption |
+| Porttelefon och lås / Door phone and locks | Electricity (door phone, electronic locks) | Power outage | At once or after a backup battery (assumption) | A key with the home care service, knock on the door | assumption |
+| Hiss / Elevator | Electricity | Power outage | At once | Stairs, carrying help, bring in | assumption |
+| Trygghetslarm / Safety alarm | Mobile network or landline, electricity | The mobile network falls | 1 h urban, 4 h outside towns after a power outage | Visit, call list | S-E5 |
+| Personalens bilar / Staff's cars | Roads | Road closure | A detour (+N km) or unreachable | Another team (send team), detour | OpenStreetMap |
+| Att nå patienten / Reaching the patient | Roads and phone | Road closure or out of contact | At once on closure; the network after 1 h urban, 4 h outside towns | Visit within 2 h, another team, bring in | OpenStreetMap, S-E5 |
+| Syrgas- och läkemedelsleveranser / Oxygen and medicine deliveries | The road to the site, the supplier | Every road within 250 m of the site closed, or a supplier disruption | The stock lasts 3 days (illustrative) | Emergency delivery, bring in | illustrative |
+| Dricksvatten och hygien / Drinking water and hygiene | Drinking water from the waterworks | Water disruption (boil-water advisory) | At once; a marking, nothing critical | Boil the water, bottled water | DATA § 4 |
+| Överlämning till sjukhus / Handover to hospital | The road to the site, transport | The patient cannot be reached by car | On road closure | Ambulance, another team | OpenStreetMap |

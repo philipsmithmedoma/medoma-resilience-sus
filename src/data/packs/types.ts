@@ -308,6 +308,19 @@ export interface HomeDisruption {
   note?: string | null;
 }
 
+/** A patient marked "Ta in": one row of the list "Överlämningar till sjukhus" and one record of the export file (SPEC.md § 7). */
+export interface Handover {
+  id: string;
+  patientId: string;
+  /** Clock minute of the decision. */
+  at: number;
+  /** The receiving site: the nearest site in scope. */
+  site: string;
+  /** The reason codes that applied (`ImpactReason`s) and the priority tier of the row then, or null when the patient was not a row. */
+  reasons: string[];
+  priority: number | null;
+}
+
 // Teams, visits and the work on affected patients (SPEC.md § 13.3, § 14.2, § 14.3)
 export type TeamId = string;
 export interface HomeTeam {
