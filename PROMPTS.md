@@ -1,6 +1,6 @@
 # PROMPTS.md
 
-The prompt this repository was built from (batches 1–6 and the six addenda), as given. It is kept here so that the build can be repeated and the decisions in DECISIONS.md can be read against it.
+The prompts this repository was built from (batches 1–6 and the six addenda, then batch 7), as given. It is kept here so that the build can be repeated and the decisions in DECISIONS.md can be read against it.
 
 ---
 
@@ -119,3 +119,27 @@ Förklaringskedjan: varje påverkad patients rad kan fällas ut till en tidslinj
 Översikten får tre realtidskort överst: Utan kontakt nu, Kortaste batteri (hub) i dag, Nästa pumpbyte inom 2 h, alla med klickbara antal.
 
 Realtidsfälten är simulerade och märks i UI med "Simulerat – kommer via integration" / "Simulated – via integration" vid första förekomst i varje vy. SPEC § 7 definierar gränsytan som en inkommande händelse per enhet: deviceId, patientId, kind (hub, phone, sensor), batteryPct, lastContactAt, lastMeasurementAt, source (leverantör); DATA.md noterar att ingen leverantör levererar detta till plattformen i dag och att Corsano och WARD 24/7 är de första att fråga.
+
+---
+
+## Bunt 7 – en organisation per miljö (prompt, 2026-11-04)
+
+Läs CLAUDE.md, SPEC.md, DATA.md, DESIGN.md, DECISIONS.md och PROMPTS.md i sin helhet, och sedan koden på main. Ställ inga frågor; beslutsprotokollet i CLAUDE.md gäller och varje val specen inte gör loggas i DECISIONS.md under rubriken "## Organisations". Skapa branchen organisations från main. Bygg bunt 7 nedan som en enhet: typecheck, test och build gröna, definition of done körd i appen, commit, PR mot main med checklistan och DECISIONS-posterna. Lägg denna prompt i PROMPTS.md. Allt via vocab, sv/en.
+
+Rör inte src/data/packs/geo/sus/, scripts/fetch-osm.mjs eller .github/workflows/fetch-osm.yml: en workflow-körning hämtar just nu SUS-geometrin och öppnar en egen PR. Om main har fått nya commits när du är klar, rebasea organisations på main innan PR:en öppnas och lös konflikter till förmån för datafilerna.
+
+### Bunt 7 – en organisation per miljö (beteendeändrande)
+
+Principen, som skrivs in i SPEC § 1: en vårdgivare ser aldrig en annan vårdgivares miljö. I produktion avgör inloggningen organisationen; i prototypen görs valet en gång på en startsida som efterliknar inloggning. Paketväljaren i Sjukhus hemma-panelen och all annan växling mellan paket inne i gränssnittet tas bort.
+
+Startsidan: route /start-org (rotroute när ingen organisation är vald), Medomas logotyp, rubriken "Välj organisation" / "Select organisation", ett kort per organisation med namn och enheternas namn, och knappen "Logga in" / "Sign in". Finns bara en organisation hoppas startsidan över och den väljs direkt; sidan finns ändå i koden eftersom fler organisationer kommer. Valet sparas i store och i hash-routen som prefix (#/o/<org>/...), så att en omladdning och en direktlänk behåller organisationen; alla befintliga routes får prefixet. I navigeringen visas organisationens namn bredvid logotypen och enhetsväljaren visar bara organisationens egna enheter (för SUS: Lund och Malmö). Användarmenyn längst till höger får "Byt organisation" / "Switch organisation" som enda väg tillbaka till startsidan, och den loggar bytet. Organisationen styr paket, zoner, team, infrastrukturnoder, geodata, meddelanden, presets och demoberättelse.
+
+Datamodellen får Organisation { id, name, careForm: 'hospital-at-home' | 'asih', units: Site[], pack: HomePackId } i src/data/packs/types.ts, och homePacks nås via organisationen; SUS är den enda posten nu, med careForm hospital-at-home och enheterna Lund och Malmö.
+
+Paketet karolinska tas bort ur detta repo: data, geodata, fixturer, tester, vocab, DATA.md § 4 och screenshots. Spara först DATA.md § 4 och Karolinska-noderna som docs/archive/karolinska-infra.md, eftersom samma Stockholmsnoder ska återanvändas i ett kommande ASIH-paket. DECISIONS.md anger att Karolinska inte har sjukhus hemma och att sjukhusledningsprodukten bor i Medoma-Resilience-KS.
+
+README: demoberättelsen för SUS börjar med att organisationen är SUS; inget nämner Karolinska. Skärmbilder tas om bara för navigeringen och startsidan.
+
+Tester: startsidan visas när flera organisationer finns och hoppas över när en finns; valet överlever omladdning; inga referenser till karolinska finns kvar i src/; alla tidigare SUS-tester går igenom.
+
+Done när: appen öppnar direkt i SUS med Lund och Malmö i enhetsväljaren, ingen paketväljare syns någonstans, användarmenyn har Byt organisation, typecheck, test och build är gröna. Skriv ut PR-länken och antalet tester.

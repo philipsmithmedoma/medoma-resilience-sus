@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { Link } from '@/app/router';
 import { useStore } from '@/data/store';
 import { t, tm, lt } from '@/lib/i18n';
 import { formatClock } from '@/lib/time';

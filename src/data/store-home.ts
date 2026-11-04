@@ -3,18 +3,17 @@
 // to the audit log through logEntry() (by way of logHome, which marks the entry as this module's) like every other action.
 import type { StateCreator } from 'zustand';
 import type { AppStore } from './store';
-import type { DataPack, Handover, HomeDisruption, HomeDisruptionPreset, HomePackId, HomeVisit, HomeWork, HomeWorkStatus, TeamId, HomeDisruptionKind, HomeDisruptionSource, HomeDisruptionTargetKind, InfraLayer, InfraNode, LocalizedText, ZoneId } from './types';
+import type { DataPack, Handover, HomeDisruption, HomeDisruptionPreset, HomeVisit, HomeWork, HomeWorkStatus, TeamId, HomeDisruptionKind, HomeDisruptionSource, HomeDisruptionTargetKind, InfraLayer, InfraNode, LocalizedText, ZoneId } from './types';
 import { lt, same, t } from '@/lib/i18n';
 import { CURRENT_USER, SYSTEM_ACTOR } from './vocab';
 import { deriveSets, expiredIds } from '@/lib/disruptions';
 import { freeSlots, effectiveVisits } from './packs/home-visits';
 import { formatClock } from '@/lib/time';
 import { haversineM } from '@/lib/roadGraph';
-import { getRoadModel, setActiveRoadPack } from '@/lib/roadModel';
+import { getRoadModel } from '@/lib/roadModel';
 import { getAppliedNodes } from '@/lib/osmNodes';
 import { homeSiteName, homeSitesInScope } from '@/lib/home-sites';
-import { buildDataPack, homePackIdOf, homePacks } from './packs/home-packs';
-import { defaultScopeOf, packOfScope } from '@/lib/scope';
+import { homePackIdOf, homePacks } from './packs/home-packs';
 import { blockedFlags, disruptionCount, impact, priorityTier } from '@/lib/reachability';
 import { roadsAtTap, waysNearPoint } from '@/lib/roadGraph';
 import { hypotheses } from '@/lib/signal';
@@ -110,9 +109,7 @@ export interface HomeActions {
   settleHomeDisruptions: () => void;
   /** Advances the shared clock (the "+1 h" control), logs it and lets expired disruptions end. */
   advanceClock: (minutes: number) => void;
-  /** Switches the home pack (SPEC.md § 14.5): patients, infrastructure, teams, visits and messages are the pack's; disruptions and work start over. Logged. */
-  setHomePack: (id: HomePackId) => void;
-  /** Selects a unit in the scope selector; a unit of the other pack switches the pack first (SPEC.md § 4). */
+  /** Selects a unit in the scope selector: one of the organisation's own units, or the whole organisation (SPEC.md § 4). */
   selectScope: (scope: string) => void;
   /** Contact – sets Contacted (the status never moves backwards) and records the note. */
   contactPatient: (patientId: string, note: string) => void;
@@ -208,7 +205,7 @@ export const createHomeSlice: StateCreator<AppStore, [], [], HomeActions> = (set
     return z ? lt(z.name) : zone;
   };
 
-  /** The sites reachability runs from: the scope's for Karolinska, SUS Lund's one site for the Lund pack. */
+  /** The sites reachability runs from: the sites of the selected unit. */
   const scopeSites = () => homeSitesInScope(get().pack.homePackId, get().scope);
   const labelOf = (input: NewDisruption): LocalizedText => {
     if (input.label) return input.label;
@@ -218,7 +215,7 @@ export const createHomeSlice: StateCreator<AppStore, [], [], HomeActions> = (set
       return same(input.targetKind === 'way' ? wayLabel(input.target) : input.target.split('|')[0]);
     }
     const zone = pack.homeZones.find((z) => z.id === input.target);
-    const name = input.kind === 'supplier' ? same(pack.homePackId === 'sus' ? 'SUS' : 'Karolinska') : zone ? zone.name : same(input.target);
+    const name = input.kind === 'supplier' ? same(homePacks[pack.homePackId].name) : zone ? zone.name : same(input.target);
     const key = `HOME.disruption.${input.kind}` as const;
     return { sv: t(key, { name: name.sv }, 'sv'), en: t(key, { name: name.en }, 'en') };
   };
@@ -510,19 +507,9 @@ export const createHomeSlice: StateCreator<AppStore, [], [], HomeActions> = (set
       logHome(t('AUDIT.homeClockAdvanced'), t('AUDIT.homeObject'), t('AUDIT.homeClockDetail', { n: minutes }), undefined, undefined, { advance: false });
     },
 
-    setHomePack: (id) => {
-      const current: string = get().pack.homePackId;
-      if (current === id) return;
-      setActiveRoadPack(id);
-      const next = buildDataPack(id);
-      set((s) => ({ pack: next, scope: defaultScopeOf(id), home: { ...initialHome(next), layers: s.home.layers } }));
-      logHome(t('AUDIT.homePackSwitched'), homePacks[id].name, t('AUDIT.homePackDetail', { n: next.homePatients.length, m: next.homeTeams.length }));
-    },
-
     selectScope: (scope) => {
-      const target = packOfScope(scope);
-      if (!target) return;
-      if (target !== get().pack.homePackId) get().setHomePack(target);
+      // Only the organisation's own units can be selected; nothing in the interface switches to another organisation's.
+      if (!homePacks[get().pack.homePackId].scopes.some((x) => x.id === scope)) return;
       set({ scope });
     },
 

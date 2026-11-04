@@ -325,7 +325,7 @@ export interface Handover {
 export type TeamId = string;
 export interface HomeTeam {
   id: TeamId;
-  name: string; // "ASIH Nord"; HomePatient.team carries the same string
+  name: string; // "Sjukhus hemma Lund"; HomePatient.team carries the same string
   baseLat: number;
   baseLng: number;
   baseLabel: LocalizedText;
@@ -360,9 +360,9 @@ export interface HomeWork {
 
 // ---------------------------------------------------------------------------
 // Home packs (SPEC.md § 14.5): the Hospital at Home data of one hospital, kept apart from the hospital pack.
-export type HomePackId = 'sus' | 'karolinska';
+export type HomePackId = 'sus';
 export interface HomeSite {
-  id: string; // 'solna', 'huddinge'
+  id: string; // 'suslund', 'susmalmo'
   name: string;
   lat: number;
   lng: number;
@@ -378,12 +378,27 @@ export interface HomeOsmMatch {
   term: string;
   file: 'power' | 'water';
 }
-/** A unit the scope selector offers: one site or all sites of the pack (SPEC.md § 4). */
+/** A unit the scope selector offers: one site or all sites of the organisation (SPEC.md § 4). */
 export interface HomeScope {
   id: string;
   /** The name shown on the selector button and in the menu. */
   label: LocalizedText;
   sites: string[];
+}
+/**
+ * The organisation (SPEC.md § 1, § 4): the care provider whose environment this is. In production the sign-in decides it; in the
+ * prototype it is chosen once on `/start-org`. An organisation sees only its own units, pack, zones, teams, infrastructure,
+ * geometry, notices, presets and demo story.
+ */
+export type CareForm = 'hospital-at-home' | 'asih';
+export interface Organisation {
+  id: string;
+  name: string;
+  careForm: CareForm;
+  /** The organisation's own units (sites): what the unit selector lists. */
+  units: HomeSite[];
+  /** The data pack of the organisation; `homePacks` is reached through it. */
+  pack: HomePackId;
 }
 export interface HomePack {
   id: HomePackId;
@@ -393,8 +408,6 @@ export interface HomePack {
   sites: HomeSite[];
   scopes: HomeScope[];
   defaultScope: string;
-  /** Whether the scope selector always lists this pack's units, or only while the pack is the active one (SPEC.md § 4). */
-  scopeMenu: 'always' | 'whenActive';
   zones: HomeZone[];
   patients: HomePatient[];
   /** Synthetic non-enrolled rows of the patient list: two under assessment, two paused, three discharged. */
@@ -423,7 +436,7 @@ export interface HomePack {
 export interface DataPack {
   staff: Staff[];
   playbooks: Playbook[];
-  /** The home pack the home members below belong to; the store swaps them when the pack is switched. */
+  /** The home pack the home members below belong to (the organisation's pack). */
   homePackId: HomePackId;
   homeZones: HomeZone[];
   homePatients: HomePatient[];

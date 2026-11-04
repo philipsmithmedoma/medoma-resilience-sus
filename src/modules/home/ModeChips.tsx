@@ -3,8 +3,6 @@ import { useStore } from '@/data/store';
 import { disruptionCount } from '@/lib/reachability';
 import { t, tm } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
-import { HOME_PACK_IDS, homePacks } from '@/data/packs/home-packs';
-import { SegmentedControl } from '@/components/SegmentedControl';
 
 /** Disruption modes above the map (SPEC.md § 11.5): close roads, power outage, water disruption, and the "Reset" chip. */
 export function ModeChips({ className }: { className?: string }) {
@@ -14,14 +12,10 @@ export function ModeChips({ className }: { className?: string }) {
   const setWholeRoad = useStore((s) => s.setWholeRoad);
   const resetHomeDisruptions = useStore((s) => s.resetHomeDisruptions);
   const advanceClock = useStore((s) => s.advanceClock);
-  const packId = useStore((s) => s.pack.homePackId);
-  const setHomePack = useStore((s) => s.setHomePack);
   const labels = tm('HOME.modes');
   const any = disruptionCount(home) > 0;
   return (
     <div role="group" aria-label={labels.label} className={cn('flex flex-wrap items-center gap-2', className)}>
-      {/* The hospital whose home patients, infrastructure, teams and map this is (SPEC.md § 14.5). */}
-      <SegmentedControl label={t('HOME.packSwitch.label')} value={packId} onChange={setHomePack} options={HOME_PACK_IDS.map((id) => ({ value: id, label: homePacks[id].name }))} />
       <span className="text-small text-text-secondary">{labels.label}</span>
       {HOME_MODES.map((m) => (
         <button

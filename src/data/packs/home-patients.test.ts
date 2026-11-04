@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, it } from 'vitest';
-import { KAROLINSKA_PACK as pack } from '@/test/packs';
+import { SUS_PACK as pack } from '@/test/packs';
 import { loadGeoData, type GeoData } from '@/lib/geoData';
 import { homeFitPoints } from '@/lib/home-geo';
 
@@ -18,8 +18,8 @@ describe('patients on streets (SPEC.md § 12.5)', () => {
     }
   });
 
-  it('puts all 150 on a vertex of a street of that name within the zone radius', () => {
-    expect(pack.homePatients).toHaveLength(150);
+  it('puts all 200 on a vertex of a street of that name within the zone radius', () => {
+    expect(pack.homePatients).toHaveLength(200);
     const streets = geo.streets.features;
     for (const p of pack.homePatients) {
       const zone = pack.homeZones.find((z) => z.id === p.zone)!;
@@ -36,11 +36,11 @@ describe('patients on streets (SPEC.md § 12.5)', () => {
     }
   });
 
-  it('keeps the attributes the earlier tests pin: 20 Huddinge patients, a visit share and el-critical patients', () => {
-    expect(pack.homePatients.filter((p) => p.zone === 'huddinge')).toHaveLength(20);
+  it('keeps the attributes the earlier tests pin: 40 Lund patients, a visit share and el-critical patients', () => {
+    expect(pack.homePatients.filter((p) => p.zone === 'lund')).toHaveLength(40);
     const visits = pack.homePatients.filter((p) => p.visitToday).length;
-    expect(visits).toBeGreaterThan(40);
-    expect(visits).toBeLessThan(80);
+    expect(visits).toBeGreaterThan(60);
+    expect(visits).toBeLessThan(100);
     expect(pack.homePatients.some((p) => p.elCritical)).toBe(true);
   });
 });
@@ -57,8 +57,8 @@ describe('the map fits the zones (SPEC.md § 12.6 batch 9)', () => {
       expect(Math.min(...lngs)).toBeLessThanOrEqual(z.lng);
       expect(Math.max(...lngs)).toBeGreaterThanOrEqual(z.lng);
     }
-    // Täby is the northernmost zone, Botkyrka the southernmost.
-    expect(Math.max(...lats)).toBeCloseTo(59.4451 + 2.5 / 111.32, 4);
-    expect(Math.min(...lats)).toBeCloseTo(59.1988 - 2.5 / 111.32, 4);
+    // Hörby is the northernmost zone (radius 1.5 km), Trelleborg the southernmost (radius 2 km).
+    expect(Math.max(...lats)).toBeCloseTo(55.851 + 1.5 / 111.32, 4);
+    expect(Math.min(...lats)).toBeCloseTo(55.3744 - 2 / 111.32, 4);
   });
 });

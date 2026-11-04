@@ -2,14 +2,13 @@
 // (SPEC.md § 12.4): fixture.json (roads), fixture-streets.json, fixture-power.json and fixture-water.json, all with the
 // same schema as the files scripts/fetch-osm.mjs writes. The road topology is designed by hand to mirror the
 // crossings of the real network (the north and the south of Stockholm meet only at the named crossings); the
-// numbers are invented, the names are the real ones. Run: node scripts/make-geo-fixtures.mjs [karolinska|sus]
-// (both without an argument); the files go to src/data/packs/geo/<pack>/ (SPEC.md § 5).
+// numbers are invented, the names are the real ones. Run: node scripts/make-geo-fixtures.mjs [sus]
+// (the Karolinska fixtures are no longer written: that pack was removed, see DECISIONS.md "Organisations"); the files go to src/data/packs/geo/<pack>/ (SPEC.md § 5).
 import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const geoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../src/data/packs/geo');
-const out = path.join(geoRoot, 'karolinska');
 const which = process.argv[2] ?? 'all';
 const r5 = (n) => Math.round(n * 1e5) / 1e5;
 const P = (lat, lng) => [r5(lng), r5(lat)]; // GeoJSON order
@@ -135,15 +134,6 @@ const water = collection([
   { type: 'Feature', properties: { id: 9300001, name: 'Görvälnverket', operator: 'Norrvatten' }, geometry: { type: 'Point', coordinates: P(59.4331, 17.7819) } },
   { type: 'Feature', properties: { id: 9300002, name: 'Lovö vattenverk', operator: 'SVOA' }, geometry: { type: 'Point', coordinates: P(59.3307, 17.8093) } },
 ]);
-
-if (which === 'all' || which === 'karolinska') {
-  mkdirSync(out, { recursive: true });
-  writeFileSync(path.join(out, 'fixture.json'), JSON.stringify(collection([...corridors, ...rings].map(lineFeature))));
-  writeFileSync(path.join(out, 'fixture-streets.json'), JSON.stringify(collection(streets)));
-  writeFileSync(path.join(out, 'fixture-power.json'), JSON.stringify(power));
-  writeFileSync(path.join(out, 'fixture-water.json'), JSON.stringify(water));
-  console.log(`fixture: ${corridors.length} corridor ways + ${rings.length} zone ring segments, ${streets.length} streets`);
-}
 
 // ---------------------------------------------------------------------------------------------------------------------
 // SUS (DATA.md § 3, SPEC.md § 4.1). The topology mirrors what the SUS tests need: the city of Lund around the hospital meets the

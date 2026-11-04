@@ -74,9 +74,9 @@ Colour never carries meaning alone: every chip has its label text.
 ## 3. Chrome
 
 **Top navigation** (48 px high, white, 1 px bottom border `--color-border`, no shadow):
-- Left, 16 px padding: the logo symbol (`assets/logo-symbol.svg`, 24 × 24, black), then the unit selector rendered as the selected unit's name at 18/600 followed by a chevron; it opens a dropdown listing the units (SPEC.md § 4).
+- Left, 16 px padding: the logo symbol (`assets/logo-symbol.svg`, 24 × 24, black), then a column with the organisation's name (12/16, `--color-text-secondary`, truncated at 190 px, full name as title) over the unit selector, rendered as the selected unit's name at 18/600 followed by a chevron; it opens a dropdown listing the organisation's own units (SPEC.md § 4). The stacking keeps both beside the seven platform tabs at 1280 px; in normal operation the tab gap is 16 px for the same reason.
 - Module tabs: 16/500 text, 32 px gap, `--color-text`; the active tab is `--color-primary` with a 3 px primary bar along the very top edge of the nav spanning the tab's width (this is how the platform marks the active module – a top bar, not an underline). Platform modules first, then a 1 px vertical divider (`--color-border`, 20 px tall), then in normal operation the outlined button "Beredskap", in preparedness mode the preparedness modules and the filled indicator "Beredskapsläge" (accent colour, at least 4.5:1 contrast, with a close control).
-- Right cluster: three decorative 20 px line icons (message-square, headphones, book-open) rendered as non-focusable `<span>`s with `title` attributes "Chat", "Support", "Documentation"; the "Demo" button (secondary, small); the avatar – 32 px circle, `--color-orange-light` fill, initials 14/600 in `--color-brown`; the user's name 16/400.
+- Right cluster: three decorative 20 px line icons (message-square, headphones, book-open) rendered as non-focusable `<span>`s with `title` attributes "Chat", "Support", "Documentation"; the "Demo" button (secondary, small); the user menu – a button holding the avatar (32 px circle, `--color-orange-light` fill, initials 14/600 in `--color-brown`), the user's name 16/400 and a small chevron; it opens a menu with "Byt organisation" (SPEC.md § 2).
 
 **Incident banner** (only when an incident is active): full width directly under the nav, 40 px, fill and borders per the mapping above, text 15/500: "Incident mode active: {playbook name}. Activated {HH:MM} by {name}. Incident commander: {name}." with two links on the right: "Open incident" and "Close incident".
 
@@ -129,7 +129,7 @@ Colour never carries meaning alone: every chip has its label text.
 ## 6. Assets
 
 - `assets/logo-symbol.svg` – the symbol used alone in the nav (24 px). It has no fill attribute and inherits colour; render black.
-- `assets/logo-full.svg` – the full lockup (symbol + wordmark), black. Not used in the nav; use only if a start/about page is added, which the spec does not require.
+- `assets/logo-full.svg` – the full lockup (symbol + wordmark), black. Not used in the nav; used on the start page `/start-org` (inverted in dark mode).
 - Favicon: `logo-symbol.svg`.
 
 ## 7. Dark mode

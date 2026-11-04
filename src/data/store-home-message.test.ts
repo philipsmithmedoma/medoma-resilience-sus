@@ -8,7 +8,7 @@ import { blockedWayIdSet } from '@/lib/reachability';
 const s = () => useStore.getState();
 
 beforeAll(async () => {
-  resetStoreTo('karolinska');
+  resetStoreTo('sus');
   await loadRoadModel(useStore.getState().pack);
   useStore.getState().setHomeGeoReady();
 });
@@ -30,37 +30,37 @@ function createFrom(id: string) {
 }
 
 describe('disruption from message (SPEC.md § 13.4)', () => {
-  beforeEach(() => resetStoreTo('karolinska'));
+  beforeEach(() => resetStoreTo('sus'));
 
-  it('creating from the road message blocks the named road, with an end 4 hours ahead and the message id in the log', () => {
+  it('creating from the road message blocks the named road, with an end 2 hours ahead and the message id in the log', () => {
     const t0 = s().clock;
-    expect(createFrom('hmsg-road')).not.toBeNull();
-    expect([...s().home.blockedRoads]).toEqual(['Essingeleden']);
+    expect(createFrom('smsg-m-road')).not.toBeNull();
+    expect([...s().home.blockedRoads]).toEqual(['Inre Ringvägen']);
     const rec = s().home.disruptions[0];
-    expect(rec).toMatchObject({ kind: 'road', source: 'message', startedAt: t0, expectedEnd: t0 + 240, note: 'Meddelande hmsg-road' });
+    expect(rec).toMatchObject({ kind: 'road', source: 'message', startedAt: t0, expectedEnd: t0 + 120, note: 'Meddelande smsg-m-road' });
     const last = s().log.at(-1)!;
-    expect(last).toMatchObject({ action: 'Startade störning', object: 'Essingeleden', actor: 'Eva Lind' });
-    expect(last.detail).toContain('Meddelande hmsg-road');
-    // The closure is real: it removes the ways of Essingeleden from the graph, so the impact is computed with it.
+    expect(last).toMatchObject({ action: 'Startade störning', object: 'Inre Ringvägen', actor: 'Eva Lind' });
+    expect(last.detail).toContain('Meddelande smsg-m-road');
+    // The closure is real: it removes the ways of Inre Ringvägen from the graph, so the impact is computed with it.
     const model = getRoadModel()!;
     const closed = blockedWayIdSet(model, s().home, s().pack);
-    const named = model.graph.ways.filter((w) => w.name === 'Essingeleden').map((w) => w.id);
+    const named = model.graph.ways.filter((w) => w.name === 'Inre Ringvägen').map((w) => w.id);
     expect(named.length).toBeGreaterThan(0);
     expect(named.every((id) => closed.has(id))).toBe(true);
-    s().advanceClock(240);
+    s().advanceClock(120);
     expect(s().home.blockedRoads.size).toBe(0); // the expected end has passed
   });
 
-  it('creating from the power and water messages starts an outage in Huddinge and a disruption in Solna', () => {
-    createFrom('hmsg-power');
-    createFrom('hmsg-water');
-    expect([...s().home.powerOutZones]).toEqual(['huddinge']);
-    expect([...s().home.waterOutZones]).toEqual(['solna']);
+  it('creating from the power and water messages starts an outage in Rosengård and a disruption in Limhamn', () => {
+    createFrom('smsg-m-power');
+    createFrom('smsg-m-water');
+    expect([...s().home.powerOutZones]).toEqual(['rosengard']);
+    expect([...s().home.waterOutZones]).toEqual(['limhamn']);
     expect(s().home.disruptions.find((d) => d.kind === 'water')!.expectedEnd).toBeNull();
   });
 
   it('creates nothing by itself: the notices alone change no state', () => {
     expect(s().home.disruptions).toHaveLength(0);
-    expect(s().pack.homeMessages).toHaveLength(3);
+    expect(s().pack.homeMessages).toHaveLength(6);
   });
 });

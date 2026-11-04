@@ -8,7 +8,7 @@ const tx = (svText: string, enText: string): LocalizedText => ({ sv: svText, en:
 // ---------------------------------------------------------------------------
 // § 7 People (all fictional)
 export const STAFF: Staff[] = [
-  { name: 'Eva Lind', title: 'Kapacitetskoordinator, Stab Produktion', profession: 'Supp', nodeId: 'karolinska' },
+  { name: 'Eva Lind', title: 'Kapacitetskoordinator, Stab Produktion', profession: 'Supp', nodeId: 'hospital' },
   { name: 'Johan Ek', title: 'Överläkare, PMI', profession: 'Doc', nodeId: 'solna' },
   { name: 'Maria Holm', title: 'Verksamhetschef IVA Solna', profession: 'Doc', nodeId: 'solna' },
   { name: 'Omar Haddad', title: 'Anestesiläkare, PMI', profession: 'Doc', nodeId: 'huddinge' },
@@ -16,7 +16,7 @@ export const STAFF: Staff[] = [
   { name: 'Sara Lund', title: 'Sjuksköterska, Intensivakuten', profession: 'Nrs', nodeId: 'solna' },
   { name: 'Karin Sjö', title: 'Logistiksamordnare, Stab Produktion', profession: 'Supp', nodeId: 'huddinge' },
   { name: 'Erik Falk', title: 'Samordnare, Ambulanssjukvården', profession: 'Supp', nodeId: 'ambulans' },
-  { name: 'Lena Åkesson', title: 'Kommunikatör (KiB)', profession: 'Supp', nodeId: 'karolinska' },
+  { name: 'Lena Åkesson', title: 'Kommunikatör (KiB)', profession: 'Supp', nodeId: 'hospital' },
   { name: 'Helena Berg', title: 'Chefläkare, Södersjukhuset', profession: 'Doc', nodeId: 'sos' },
   { name: 'Mats Öberg', title: 'Vårdhubbsansvarig', profession: 'Nrs' },
   { name: 'Jonas Vik', title: 'Fältsjukhuschef', profession: 'Doc' },
@@ -126,8 +126,8 @@ export const PLAYBOOKS: Playbook[] = [
     name: tx('Mottagande av evakuerade patienter', 'Receiving evacuated patients'),
     trigger: tx('RSSL fördelar patienter från annan region eller annat land', 'RSSL distributes patients from another region or country'),
     summary: tx(
-      'Tar emot patienter som RSSL fördelar till Karolinska, som övat i Sjukvårdsövning 26 (S15) med ett scenario på cirka 260 patienter.',
-      'Receives patients that RSSL distributes to Karolinska, as exercised in Sjukvårdsövning 26 (S15) with a scenario of about 260 patients.',
+      'Tar emot patienter som RSSL fördelar till sjukhuset, som övat i Sjukvårdsövning 26 (S15) med ett scenario på cirka 260 patienter.',
+      'Receives patients that RSSL distributes to the hospital, as exercised in Sjukvårdsövning 26 (S15) with a scenario of about 260 patients.',
     ),
     defaultLage: 'Stabsläge',
     roles: [R.ledare, R.medicinsk, R.logistik],

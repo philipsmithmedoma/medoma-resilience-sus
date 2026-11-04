@@ -6,19 +6,20 @@ import { impact } from '@/lib/reachability';
 
 const s = () => useStore.getState();
 beforeAll(async () => {
-  resetStoreTo('karolinska');
+  resetStoreTo('sus');
   await loadRoadModel(useStore.getState().pack);
   useStore.getState().setHomeGeoReady();
 });
 
-describe('reassignment (SPEC.md § 14.2)', () => {
-  beforeEach(() => resetStoreTo('karolinska'));
+describe('reassignment (SPEC.md § 8)', () => {
+  beforeEach(() => resetStoreTo('sus'));
 
   it('"Reassign to <team>" is the Send team action: Planned, the team recorded, one log entry', (ctx) => {
     if (getRoadModel()!.source !== 'fixture') ctx.skip(); // the closures below are chosen for the hand-written fixture
-    for (const road of ['Solnavägen', 'Essingeleden', 'Södra länken']) s().toggleBlockedRoad(road);
-    const r = impact(s().pack, s().home, ['solna', 'huddinge'], getRoadModel(), s().clock);
-    expect(r.summary.teamReassignable).toBeGreaterThan(0);
+    for (const road of ['Trafikplats Lund Södra']) s().toggleBlockedRoad(road);
+    const r = impact(s().pack, s().home, ['suslund', 'susmalmo'], getRoadModel(), s().clock);
+    expect(r.summary.teamReassignable).toBe(30); // fixture count
+    expect(r.reassignments.every((x) => x.toTeam === 'shh-lund' || x.toTeam === 'shh-malmo')).toBe(true);
     const a = r.reassignments[0];
     const n = s().log.length;
     s().sendTeam(a.patientId, a.toTeam);

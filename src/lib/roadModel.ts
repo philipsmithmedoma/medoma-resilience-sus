@@ -73,7 +73,7 @@ export function sourceVertices(model: Pick<RoadModel, 'sites'>, scope: string[])
 
 const models = new Map<HomePackId, RoadModel>();
 const loads = new Map<HomePackId, Promise<RoadModel>>();
-let activeId: HomePackId = 'karolinska';
+let activeId: HomePackId = 'sus';
 
 /** The pack whose model `getRoadModel` returns: the one the store has switched to (SPEC.md § 14.5). */
 export function setActiveRoadPack(id: HomePackId): void {

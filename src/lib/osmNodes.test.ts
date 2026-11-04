@@ -1,6 +1,7 @@
 import { beforeAll, describe, expect, it } from 'vitest';
-import { KAROLINSKA_PACK as pack } from '@/test/packs';
+import { SUS_PACK as pack } from '@/test/packs';
 import { loadGeoData, type GeoData, type PointFeature } from './geoData';
+import { homePacks } from '@/data/packs/home-packs';
 import { applyOsmNodes, osmCoordSource, powerLines, voltageLabel } from './osmNodes';
 
 let geo: GeoData;
@@ -11,36 +12,42 @@ beforeAll(async () => {
 const point = (id: number, name: string, lat: number, lng: number): PointFeature => ({ type: 'Feature', properties: { id, name, power: 'substation' }, geometry: { type: 'Point', coordinates: [lng, lat] } });
 const withPower = (features: GeoData['power']['features']): GeoData => ({ ...geo, power: { type: 'FeatureCollection', features } });
 
+const fixtureOnly = (ctx: { skip: () => void }) => {
+  if (geo.source.power === 'osm' || geo.source.water === 'osm') ctx.skip(); // exact names and counts of the hand-made fixture; real OpenStreetMap data differs
+};
+const estimateOf = (id: string) => pack.infraNodes.find((n) => n.id === id)!;
+const MATCH_IDS = homePacks.sus.osmMatches.map((m) => m.nodeId);
+
 describe('nodes from OpenStreetMap (SPEC.md § 12.5)', () => {
-  it('gives Överby, Beckomberga, Hagby and Görväln the position of the matching object, adds Kolbotten, and reports Skanstull (no match in the data) as missing', () => {
+  it('gives Hurva, Barsebäck, Sege, Ringsjöverket and Vombverket the position of the matching object and adds no node (the SUS pack has no osmExtra)', (ctx) => {
+    fixtureOnly(ctx);
+    expect(homePacks.sus.osmExtra).toEqual({});
     const r = applyOsmNodes(pack.infraNodes, geo, null);
-    // OpenStreetMap has no substation named Skanstull (query 2026-11-03): the node keeps its estimate and is reported (SPEC.md § 12.5).
-    expect(r.missing).toEqual(['e-skanstull']);
-    expect(r.matched.sort()).toEqual(['e-beckomberga', 'e-hagby', 'e-kolbotten', 'e-overby', 'w-gorvaln']);
-    expect(r.nodes.find((n) => n.id === 'e-skanstull')).toEqual(pack.infraNodes.find((n) => n.id === 'e-skanstull'));
+    expect(r.missing).toEqual([]);
+    expect([...r.matched].sort()).toEqual([...MATCH_IDS].sort());
     const node = (id: string) => r.nodes.find((n) => n.id === id)!;
-    // The real data can hold several objects with a name (two Överby substations, two Görväln works); the code takes the one nearest
-    // the old estimate, so the expectation does too.
+    // The real data can hold several objects with a name; the code takes the one nearest the old estimate, so the expectation does too.
     const expected = (nodeId: string, term: string, features: Array<{ properties: { name?: string | null }; geometry: { coordinates: unknown } }>) => {
-      const est = pack.infraNodes.find((n) => n.id === nodeId)!;
+      const est = estimateOf(nodeId);
       const hits = features.filter((f) => f.properties.name?.toLowerCase().includes(term.toLowerCase())) as Array<{ geometry: { coordinates: [number, number] } }>;
       const d = (f: (typeof hits)[number]) => Math.hypot(f.geometry.coordinates[1] - est.lat, f.geometry.coordinates[0] - est.lng);
       return [...hits].sort((x, y) => d(x) - d(y))[0].geometry.coordinates;
     };
     const at = (id: string) => [node(id).lng, node(id).lat];
-    expect(at('e-overby')).toEqual(expected('e-overby', 'Överby', geo.power.features));
-    expect(at('e-beckomberga')).toEqual(expected('e-beckomberga', 'Beckomberga', geo.power.features)); // "Stamstation Beckomberga": a substring match
-    expect(at('e-hagby')).toEqual(expected('e-hagby', 'Hagby', geo.power.features.filter((f) => f.properties.power === 'substation')));
-    expect(at('w-gorvaln')).toEqual(expected('w-gorvaln', 'Görväln', geo.water.features));
-    expect(node('e-kolbotten')).toMatchObject({ layer: 'el', kind: 'transmission', verified: true });
-    expect(r.nodes).toHaveLength(pack.infraNodes.length + 1);
+    const substations = geo.power.features.filter((f) => f.properties.power === 'substation');
+    expect(at('e-hurva')).toEqual(expected('e-hurva', 'Hurva', substations));
+    expect(at('e-barseback')).toEqual(expected('e-barseback', 'Barsebäck', substations));
+    expect(at('e-sege')).toEqual(expected('e-sege', 'Sege', substations));
+    expect(at('w-ringsjo')).toEqual(expected('w-ringsjo', 'Ringsjöverket', geo.water.features));
+    expect(at('w-vomb')).toEqual(expected('w-vomb', 'Vombverket', geo.water.features));
+    expect(r.nodes).toHaveLength(pack.infraNodes.length);
   });
 
   it('leaves the other nodes as they were and does not change the pack', () => {
     const before = JSON.stringify(pack.infraNodes);
     const r = applyOsmNodes(pack.infraNodes, geo, null);
     expect(JSON.stringify(pack.infraNodes)).toBe(before);
-    expect(r.nodes.find((n) => n.id === 'r-essingeleden')).toEqual(pack.infraNodes.find((n) => n.id === 'r-essingeleden'));
+    for (const id of ['r-lund-s', 'e-regionnat', 'w-kallby']) expect(r.nodes.find((n) => n.id === id)).toEqual(estimateOf(id));
   });
 
   it('marks real OpenStreetMap positions reported with the query date and fixture positions illustrative', () => {
@@ -48,34 +55,42 @@ describe('nodes from OpenStreetMap (SPEC.md § 12.5)', () => {
     const fixture = osmCoordSource('fixture', null);
     expect(fixture.confidence).toBe('illustrative');
     expect(fixture.source).toContain('not been fetched');
+    // Hurva and Sege have a substation in the fixture too, so the check below holds whichever data is loaded.
     const real = applyOsmNodes(pack.infraNodes, { ...geo, source: { ...geo.source, power: 'osm', water: 'osm' } }, '2026-11-03');
-    expect(real.nodes.find((n) => n.id === 'e-hagby')).toMatchObject({ coordConfidence: 'reported', coordSource: 'OpenStreetMap, 2026-11-03' });
-    expect(real.nodes.find((n) => n.id === 'e-kolbotten')).toMatchObject({ coordConfidence: 'reported', coordSource: 'OpenStreetMap, 2026-11-03' });
+    for (const id of real.matched) expect(real.nodes.find((n) => n.id === id), id).toMatchObject({ coordConfidence: 'reported', coordSource: 'OpenStreetMap, 2026-11-03' });
+    expect(real.matched.length).toBeGreaterThan(0);
   });
 
-  it('keeps the estimate of a node with no match, reports it as missing and adds no Kolbotten', () => {
-    const only = geo.power.features.filter((f) => !/hagby|kolbotten/i.test(f.properties.name ?? ''));
+  it('keeps the estimate of a node with no match and reports it as missing', () => {
+    const only = geo.power.features.filter((f) => !/hurva|sege/i.test(f.properties.name ?? ''));
     const r = applyOsmNodes(pack.infraNodes, withPower(only), null);
-    expect(r.missing.sort()).toEqual(['e-hagby', 'e-kolbotten', 'e-skanstull']); // Skanstull has no match in the real data either
-    expect(r.nodes.find((n) => n.id === 'e-hagby')).toEqual(pack.infraNodes.find((n) => n.id === 'e-hagby'));
-    expect(r.nodes.some((n) => n.id === 'e-kolbotten')).toBe(false);
+    // Vombverket is matched when the water data holds it (the fixture does); the real OpenStreetMap water.json has no object named
+    // Vombverket, so there it is missing too and keeps its estimate (DECISIONS.md 63).
+    const vombInData = geo.water.features.some((f) => f.properties.name?.toLowerCase().includes('vombverket'));
+    expect([...r.missing].sort()).toEqual(vombInData ? ['e-hurva', 'e-sege'] : ['e-hurva', 'e-sege', 'w-vomb']);
+    if (vombInData) expect(r.matched).toContain('w-vomb');
+    else expect(r.nodes.find((n) => n.id === 'w-vomb')).toEqual(estimateOf('w-vomb'));
+    expect(r.nodes.find((n) => n.id === 'e-hurva')).toEqual(estimateOf('e-hurva'));
+    expect(r.nodes.find((n) => n.id === 'e-sege')).toEqual(estimateOf('e-sege'));
+    expect(r.matched).not.toContain('e-hurva');
+    expect(r.nodes).toHaveLength(pack.infraNodes.length);
   });
 
   it('matches case-insensitively and takes the object nearest the old estimate when several match', () => {
-    const near = point(1, 'ÖVERBY stn', 59.476, 17.885);
-    const far = point(2, 'Överby (annan)', 59.2, 17.7);
+    const est = estimateOf('e-hurva');
+    const near = point(1, 'HURVA stn', est.lat + 0.001, est.lng + 0.001);
+    const far = point(2, 'Hurva (annan)', est.lat + 0.3, est.lng + 0.3);
     const r = applyOsmNodes(pack.infraNodes, withPower([far, near]), null);
-    expect(r.nodes.find((n) => n.id === 'e-overby')).toMatchObject({ lat: 59.476, lng: 17.885 });
+    expect(r.nodes.find((n) => n.id === 'e-hurva')).toMatchObject({ lat: est.lat + 0.001, lng: est.lng + 0.001 });
   });
 
   it('every node has a coordSource, and only the regional grid renders hollow', () => {
     const r = applyOsmNodes(pack.infraNodes, geo, null);
     for (const n of r.nodes) expect(n.coordSource.length, n.id).toBeGreaterThan(0);
     expect(r.nodes.filter((n) => !n.verified).map((n) => n.id)).toEqual(['e-regionnat']);
-    // The estimate basis texts of DATA.md § 11 are gone from the pack.
-    for (const n of pack.infraNodes.filter((x) => x.coordConfidence === 'estimate' && x.id !== 'w-norrvatten-reserve' && x.id !== 'w-malaren')) {
-      expect(n.coordSource, n.id).toBe('Fallback estimate, used when OpenStreetMap has no matching object (DATA.md § 12)');
-    }
+    // A node still on an estimate says in both languages how the estimate was made (Sege is one that OpenStreetMap replaces when it has a match).
+    for (const n of pack.infraNodes.filter((x) => x.coordConfidence === 'estimate')) expect(n.coordSource, n.id).toMatch(/ \/ /);
+    expect(pack.infraNodes.filter((x) => x.coordConfidence === 'estimate').map((x) => x.id).sort()).toEqual(['e-sege', 'w-kallby']);
   });
 });
 
@@ -88,9 +103,10 @@ describe('power lines (SPEC.md § 12.5)', () => {
   });
   it('turns the lines of power.json into labelled polylines in [lat, lng] order, one line per connected set of ways, with its label on the line', () => {
     const lines = powerLines(geo);
-    expect(lines.length).toBeGreaterThan(1);
+    expect(lines.length).toBeGreaterThanOrEqual(1);
     expect(lines.every((l) => l.label.endsWith('kV') && l.segments.every((s) => s.length >= 2 && s[0][0] > 50 && s[0][0] < 70))).toBe(true);
     expect(lines.find((l) => l.label === '400 kV')!.highest).toBe(400);
+    if (geo.source.power === 'fixture') expect(lines.map((l) => [l.label, l.segments.length])).toEqual([['400 kV', 3]]); // the three connected ways of the fixture
     for (const l of lines) expect(l.segments.some((s) => s.some((p) => p[0] === l.labelAt[0] && p[1] === l.labelAt[1]))).toBe(true);
   });
   it('draws only 400 and 220 kV, and merges ways that share an end point and a voltage into one line with one label', () => {
@@ -111,9 +127,9 @@ describe('power lines (SPEC.md § 12.5)', () => {
     expect(lines.map((l) => [l.label, l.segments.length]).sort()).toEqual([['220 kV', 1], ['400 kV', 1], ['400 kV', 2]]);
     expect(lines.some((l) => l.highest < 220)).toBe(false);
   });
-  it('the hand-drawn el link between nodes is gone; the off-map arrows stay', () => {
+  it('the hand-drawn el links between nodes are all unverified and schematic; the off-map arrows stay', () => {
     const el = pack.infraLinks.filter((l) => l.layer === 'el');
-    expect(el.every((l) => l.offmap || l.a === 'e-regionnat')).toBe(true);
-    expect(el.filter((l) => l.offmap)).toHaveLength(5);
+    expect(el.filter((l) => !l.offmap).every((l) => !l.verified && l.style === 'dashed')).toBe(true);
+    expect(el.filter((l) => l.offmap)).toHaveLength(3);
   });
 });

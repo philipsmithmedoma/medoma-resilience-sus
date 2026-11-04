@@ -2,7 +2,7 @@
 import type { StateCreator } from 'zustand';
 import type { AppStore } from './store';
 import type { BeredskapsLage, IncidentTask, Message, TaskStatus } from './types';
-import { COMMANDER_ROLE, CURRENT_USER, KAROLINSKA_ID, SYSTEM_ACTOR } from './vocab';
+import { COMMANDER_ROLE, CURRENT_USER, HOSPITAL_NODE_ID, SYSTEM_ACTOR } from './vocab';
 import { key, lt, same, t, tm } from '@/lib/i18n';
 import { buildIncident } from '@/lib/incident';
 import { formatClock } from '@/lib/time';
@@ -99,7 +99,7 @@ export const createIncidentSlice: StateCreator<AppStore, [], [], IncidentActions
     const { incident, clock, nextId, logEntry } = get();
     const channel = incident?.channels.find((c) => c.id === channelId);
     if (!incident || !channel || !text.trim()) return;
-    const message: Message = { id: nextId('msg'), author: CURRENT_USER.name, role: t('LABELS.currentUserRole'), at: formatClock(clock), text: text.trim(), nodeId: KAROLINSKA_ID };
+    const message: Message = { id: nextId('msg'), author: CURRENT_USER.name, role: t('LABELS.currentUserRole'), at: formatClock(clock), text: text.trim(), nodeId: HOSPITAL_NODE_ID };
     set({
       incident: {
         ...incident,

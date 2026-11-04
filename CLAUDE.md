@@ -1,6 +1,6 @@
 # Medoma Center – preparedness mode prototype
 
-This repository holds the prototype of **Medoma Center with a preparedness mode** (beredskapsläge), lifted out of the public repository `Medoma-Resilience-KS`, where the hospital-management product for Karolinska lives together with the Hospital at Home module. Everything that belongs to Medoma Center and Sjukhus hemma moved here, with **Skånes universitetssjukhus (SUS: Lund and Malmö)** as the default data pack and **Karolinska** as the second pack. The hospital-management parts (capacity, flow, evacuation, resources, network, scenario engine, start page, sources) stay in the source repository.
+This repository holds the prototype of **Medoma Center with a preparedness mode** (beredskapsläge), lifted out of the public repository `Medoma-Resilience-KS`, where the hospital-management product for Karolinska lives together with the Hospital at Home module. Everything that belongs to Medoma Center and Sjukhus hemma moved here, with **Skånes universitetssjukhus (SUS: Lund and Malmö)** as the only organisation and data pack. A care provider never sees another provider's environment: the organisation is chosen once on `/start-org` and carried in the route prefix `#/o/<org>/`. The former Karolinska pack is archived in `docs/archive/karolinska-infra.md`. The hospital-management parts (capacity, flow, evacuation, resources, network, scenario engine, start page, sources) stay in the source repository.
 
 Read `CLAUDE.md`, `SPEC.md`, `DATA.md` and `DESIGN.md` completely, then inspect the actual code before writing anything. `DECISIONS.md` starts with `## Seeded from Medoma-Resilience-KS`; keep every entry and append new ones.
 
@@ -12,7 +12,7 @@ Precedence when documents disagree: `SPEC.md` > `DATA.md` > `DESIGN.md` > code. 
 
 - **Data lives in data packs** (`src/data/packs/`), never in components. Every figure carries confidence (`verified | reported | estimate | illustrative`) and source; the UI renders the confidence wherever the figure is shown. Illustrative values are never presented as verified.
 - **All user-visible text goes through `src/data/vocab.ts`** with English keys and `sv`/`en` tables of identical key sets. Keys, enum values, types, file names, commit messages and code comments are English. Swedish typography rules are in `DESIGN.md`.
-- **Synthetic people.** Patients, teams, visits, staff and messages are synthetic and marked so. No real person's name, no customer logo (the customer's name as text only). In the SUS pack the patients are patients in a Sjukhus hemma programme at SUS; the word ASIH is used only in the Karolinska pack, as a team name.
+- **Synthetic people.** Patients, teams, visits, staff and messages are synthetic and marked so. No real person's name, no customer logo (the customer's name as text only). In the SUS pack the patients are patients in a Sjukhus hemma programme at SUS; the word ASIH is reserved for a coming ASIH pack, as a team name.
 - **No network calls from the app beyond the map tiles.** Overpass is called only by `scripts/fetch-osm.mjs` and the workflow `.github/workflows/fetch-osm.yml`.
 - No backend, auth or persistence. Minimum viewport 1280 px. No emoji, no ALL CAPS, no gradients.
 - Medoma Center runs in the hospital's control centre on the hospital's backup power and is assumed never to fail in a power outage; what falls in the home is Medoma Care and the monitoring (Medoma Go).
@@ -33,10 +33,10 @@ When the spec is silent, choose the simplest option consistent with `SPEC.md`, i
 src/app/              nav, routes, layout, theme and language toggles, unit selector
 src/components/       shared components (cards, chips, map layers, message thread, log drawer)
 src/data/vocab.ts     every UI string, sv and en
-src/data/packs/       data packs (sus, karolinska), types.ts, geo/<pack>/ OpenStreetMap files and fixtures
+src/data/packs/       data packs (sus), organisations.ts, types.ts, geo/<pack>/ OpenStreetMap files and fixtures
 src/data/store*.ts    zustand store: home, incident, clock, audit log, locale, theme, preparedness
 src/lib/              pure logic: reachability, roadGraph, osmNodes, preparedness, disruptions, realtime, time, scope, format
-src/modules/          home, planning, patients, equipment, capacity, overview, dependencies, incident, platform stubs
+src/modules/          home, planning, patients, equipment, capacity, overview, dependencies, incident, start (organisation start page), platform stubs
 scripts/              fetch-osm.mjs, osm-convert, generate-patients, make-geo-fixtures, overpass queries
 docs/                 screenshots
 ```

@@ -2,68 +2,49 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { useStore } from './store';
 import { homePacks } from './packs/home-packs';
 import { homeSitesInScope } from '@/lib/home-sites';
-import { packOfScope, scopeMenu, scopeName } from '@/lib/scope';
+import { scopeMenu, scopeName } from '@/lib/scope';
 import { getRoadModel, loadRoadModel } from '@/lib/roadModel';
 import { impact } from '@/lib/reachability';
 import { resetStoreTo } from '@/test/packs';
 
 const s = () => useStore.getState();
 
-describe('home packs and the unit selector (SPEC.md § 4)', () => {
+describe('the pack of the organisation and the unit selector (SPEC.md § 1, § 4)', () => {
   beforeEach(() => s().reset());
 
-  it('starts on SUS with its own scope; a demo reset returns there', () => {
+  it('starts on SUS with its own scope; a demo reset keeps the organisation', () => {
     expect(s().pack.homePackId).toBe('sus');
+    expect(s().organisationId).toBe('sus');
     expect(s().scope).toBe('sus');
     expect(s().pack.homePatients).toBe(homePacks.sus.patients);
-    s().setHomePack('karolinska');
+    s().setScope('susmalmo');
     s().reset();
+    expect(s().scope).toBe('sus');
+    expect(s().organisationId).toBe('sus');
     expect(s().pack.homePackId).toBe('sus');
   });
 
-  it('a scope belongs to one pack and its sites are that scope\'s', () => {
-    expect(packOfScope('suslund')).toBe('sus');
-    expect(packOfScope('solna')).toBe('karolinska');
-    expect(packOfScope('nowhere')).toBeNull();
+  it('the sites of a scope are that scope\'s', () => {
     expect(homeSitesInScope('sus', 'sus')).toEqual(['suslund', 'susmalmo']);
+    expect(homeSitesInScope('sus', 'suslund')).toEqual(['suslund']);
     expect(homeSitesInScope('sus', 'susmalmo')).toEqual(['susmalmo']);
-    expect(homeSitesInScope('karolinska', 'huddinge')).toEqual(['huddinge']);
     expect([scopeName('sus', 'sus'), scopeName('sus', 'suslund'), scopeName('sus', 'susmalmo')]).toEqual(['SUS', 'Lund', 'Malmö']);
   });
 
-  it('the menu lists SUS, Lund and Malmö always, and Karolinska, Solna and Huddinge while the Karolinska pack is selected', () => {
-    const ids = (pack: 'sus' | 'karolinska') => scopeMenu(pack).flatMap((g) => g.scopes.map((x) => x.id));
-    expect(ids('sus')).toEqual(['sus', 'suslund', 'susmalmo']);
-    expect(ids('karolinska')).toEqual(['sus', 'suslund', 'susmalmo', 'karolinska', 'solna', 'huddinge']);
+  it('the menu lists only the organisation\'s own units: SUS as a whole, Lund and Malmö', () => {
+    expect(scopeMenu('sus').map((x) => x.id)).toEqual(['sus', 'suslund', 'susmalmo']);
   });
 
-  it('selecting a unit of the active pack changes the scope only; a unit of the other pack switches the pack, both ways', () => {
+  it('selecting a unit changes the scope only; an id that is not one of the organisation\'s units is ignored', () => {
     const n = s().log.length;
     s().setScope('susmalmo');
     expect(s().scope).toBe('susmalmo');
     expect(s().log).toHaveLength(n);
-    s().setHomePack('karolinska');
-    expect(s().pack.homePackId).toBe('karolinska');
-    expect(s().scope).toBe('karolinska');
-    expect(s().pack.homePatients).toHaveLength(150);
-    expect(s().log.at(-1)).toMatchObject({ action: 'Bytte sjukhus för Sjukhus hemma till', object: 'Karolinska', area: 'home' });
-    s().setScope('suslund'); // a unit of the other pack
+    s().setScope('somewhere-else');
+    expect(s().scope).toBe('susmalmo');
     expect(s().pack.homePackId).toBe('sus');
-    expect(s().scope).toBe('suslund');
     expect(s().pack.homePatients).toHaveLength(200);
     expect(s().pack.homeTeams.map((t) => t.name)).toEqual(['Sjukhus hemma Lund', 'Sjukhus hemma Malmö']);
-    expect(s().pack.infraNodes.some((x) => x.id === 'r-essingeleden')).toBe(false);
-  });
-
-  it('disruptions and work start over with the pack; the layers stay', () => {
-    s().togglePowerOut('rosengard');
-    s().setHomeLayer('tele', true);
-    s().setHomePack('karolinska');
-    expect(s().home.disruptions).toEqual([]);
-    expect(s().home.work).toEqual({});
-    expect(s().home.layers.tele).toBe(true);
-    s().togglePowerOut('rosengard'); // not a Karolinska zone: ignored
-    expect(s().home.powerOutZones.size).toBe(0);
   });
 
   it('with the SUS pack reachability runs from the sites of the selected unit', async () => {
@@ -124,7 +105,7 @@ describe('the cold chain and the hypothesis in the store (SPEC.md § 6)', () => 
     s().setHomeGeoReady();
     const model = getRoadModel()!;
     const { waysNearPoint } = await import('@/lib/roadGraph');
-    const site = s().pack.homePackId === 'sus' ? homePacks.sus.sites[0] : homePacks.karolinska.sites[0];
+    const site = homePacks.sus.sites[0];
     const ways = waysNearPoint(model.graph, site.lat, site.lng, 250);
     expect(ways.length).toBeGreaterThan(0);
     for (const w of ways) s().toggleBlockedWay(String(model.graph.ways[w].id));

@@ -2,7 +2,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { en, sv, HOME_EQUIPMENT, MODULE_DEFS, PLATFORM_DEFS } from './vocab';
-import { KAROLINSKA_PACK as pack } from '@/test/packs';
+import { SUS_PACK as pack } from '@/test/packs';
 
 /** Walks a dotted path through a vocab table; undefined when it does not resolve. */
 function at(table: unknown, path: string): unknown {
@@ -75,7 +75,7 @@ describe('vocab parity for Hospital at Home (SPEC.md § 11.7 batch 5)', () => {
     expect(en.STUB.link).toBe('Go to Hospital at Home');
     expect(sv.STUB.menu).toBe('Medoma');
     expect(pack.homePresets.map((p) => [p.name.sv, p.name.en])).toEqual([
-      ['Bro avstängd', 'Bridge closed'],
+      ['Trafikplatser avstängda', 'Interchanges closed'],
       ['Elavbrott', 'Power outage'],
       ['Vattenstörning', 'Water disruption'],
       ['Värmebölja', 'Heatwave'],

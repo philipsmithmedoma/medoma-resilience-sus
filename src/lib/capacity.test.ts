@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { SUS_PACK, KAROLINSKA_PACK } from '@/test/packs';
+import { SUS_PACK } from '@/test/packs';
 import { homePacks } from '@/data/packs/home-packs';
 import { NO_DISRUPTIONS, impact } from './reachability';
 import { INITIAL_CLOCK } from './time';
@@ -51,6 +51,6 @@ describe('capacity (SPEC.md § 8)', () => {
     expect(prep[0].cards.affectedVisits).toBe(visits.filter((v) => v.status !== 'cancelled' && rows.some((r) => r.affected && r.patient.id === v.patientId)).length);
     expect(prep[0].disrupted && prep[1].disrupted).toBe(true);
     expect(prep[2].disrupted).toBe(false);
-    expect(KAROLINSKA_PACK.homeTeams).toHaveLength(4);
+    expect(SUS_PACK.homeTeams).toHaveLength(2);
   });
 });

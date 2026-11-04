@@ -1,5 +1,5 @@
 import { useEffect, useId, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from '@/app/router';
 import { toast } from 'sonner';
 import type { BeredskapsLage, Playbook } from '@/data/types';
 import { useStore } from '@/data/store';

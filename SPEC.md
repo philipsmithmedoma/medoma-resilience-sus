@@ -13,22 +13,26 @@ Two modes, one navigation:
 
 Medoma Center itself runs in the hospital's control centre on the hospital's backup power and is assumed never to fail in a power outage. What fails in the home is Medoma Care (the patient app and the home equipment's data) and the monitoring, in the field Medoma Go.
 
+**One organisation per environment.** A care provider never sees another care provider's environment. In production the sign-in decides the organisation; in the prototype the choice is made once, on a start page that imitates the sign-in (§ 2, `/start-org`). Nothing inside the interface switches between packs: the pack switch of the Sjukhus hemma panel and every other way of moving between packs are gone. The organisation (`Organisation`, § 3) governs the pack, the zones, the teams, the infrastructure nodes, the geometry, the notices, the presets and the demo story; the unit selector lists only the organisation's own units. With one organisation the start page is skipped and that organisation is selected at once; the page stays in the code because more organisations will come. The only way back to the start page is "Byt organisation" in the user menu.
+
 Product rules:
 
 * All text in the app goes through `src/data/vocab.ts` (English keys, `sv` and `en` tables with identical key sets). Swedish is the default language.
 * Every number carries confidence and source as in `DATA.md` § 1. Illustrative values are never presented as verified.
 * Patients, teams, visits, staff and messages are synthetic and marked so ("Fiktiva patientuppgifter – inga verkliga patienter."). No real person's name appears. No customer logo; the customer's name appears as text only.
-* In the SUS pack the patients are patients in a Sjukhus hemma programme at SUS. The word ASIH is used only in the Karolinska pack, as a team name.
+* In the SUS pack the patients are patients in a Sjukhus hemma programme at SUS (care form `hospital-at-home`). The word ASIH is reserved for a coming ASIH pack (care form `asih`), where it is a team name; there is no such pack in this repository yet.
 * No network calls from the app beyond the map tiles. Overpass is called only by `scripts/fetch-osm.mjs` and the workflow `fetch-osm.yml`.
 * No backend, auth or persistence. Minimum viewport 1280 px. No emoji, no ALL CAPS, no gradients.
 
 ## 2. Navigation
 
-Routes are hash-based. Navigation has two states chosen by `preparednessActive(state, route)` in `src/lib/preparedness.ts` (pure), not by viewport width.
+Routes are hash-based. **Every route of an organisation carries the prefix `#/o/<org>/…`** (`#/o/sus/patients`), so that a reload and a direct link keep the organisation; the paths below are written without it. A link without the prefix is moved under it. `/start-org` has no prefix. Navigation has two states chosen by `preparednessActive(state, route)` in `src/lib/preparedness.ts` (pure), not by viewport width.
 
-**Normal operation.** Left: the logo, the unit selector (§ 4). Tabs, in this order, sv/en: Patienter/Patients (`/patients`), Aktiviteter/Activities (`/activities`), Planering/Planning (`/planning`), Kapacitet/Capacity (`/capacity`), Medarbetare/Employees (`/employees`), Utrustning/Equipment (`/equipment`), Rapportering/Reporting (`/reporting`). A 1 px vertical divider, then one outlined button "Beredskap" / "Preparedness". The right cluster: clock, language, theme, Demo, user. The root route `/` goes to `/patients`.
+**Normal operation.** Left: the logo, the organisation's name with the unit selector under it (§ 4). Tabs, in this order, sv/en: Patienter/Patients (`/patients`), Aktiviteter/Activities (`/activities`), Planering/Planning (`/planning`), Kapacitet/Capacity (`/capacity`), Medarbetare/Employees (`/employees`), Utrustning/Equipment (`/equipment`), Rapportering/Reporting (`/reporting`). A 1 px vertical divider, then one outlined button "Beredskap" / "Preparedness". The right cluster: clock, language, theme, Demo, user. The user menu (the avatar and the name, with a chevron) holds one item, "Byt organisation" / "Switch organisation", the only way back to the start page; it signs out, logs the switch (`logEntry`, without moving the clock) and goes to `/start-org`. The root route of an organisation (`#/o/<org>`) goes to `/patients`.
 
-**Preparedness mode.** Left: the logo, the unit selector. One menu "Medoma" holding the seven platform entries, the divider, the tabs Översikt/Overview (`/overview`), Sjukhus hemma/Hospital at Home (`/home`), Incident (`/incident`), and `Beroenden`/`Dependencies` (`/dependencies`) as a tab after Incident. The button becomes a filled indicator "Beredskapsläge" / "Preparedness mode" in the accent colour (contrast at least 4.5:1 against its background) with a close control. The root route goes to `/overview`.
+**Preparedness mode.** Left: the logo, the organisation's name and the unit selector. One menu "Medoma" holding the seven platform entries, the divider, the tabs Översikt/Overview (`/overview`), Sjukhus hemma/Hospital at Home (`/home`), Incident (`/incident`), and `Beroenden`/`Dependencies` (`/dependencies`) as a tab after Incident. The button becomes a filled indicator "Beredskapsläge" / "Preparedness mode" in the accent colour (contrast at least 4.5:1 against its background) with a close control. The root route of the organisation goes to `/overview`.
+
+**Start page `/start-org`.** The root route while no organisation is selected: the Medoma logotype, the heading "Välj organisation" / "Select organisation", one card per organisation with its name and the names of its units, and the button "Logga in" / "Sign in" on each card. The button selects the organisation (store `organisationId`, logged as "Loggade in i" / "Signed in to") and opens its root route. The selection is held in the store and in the route prefix; the route is authoritative, so a reload or a direct link to `#/o/<org>/…` signs in to that organisation, and a prefix naming an organisation that does not exist leads to `/start-org`. A different organisation than the one whose data the store holds gets a fresh environment (disruptions, work, log, clock); signing in again to the same organisation continues the environment. With one organisation the root route skips the page. No navigation is shown on the page.
 
 **Activation.** `preparednessActive` is true when (1) the manual flag `preparednessOn` is on, or (2) an incident is active, or (3) the route belongs to a preparedness module (`/overview`, `/home`, `/incident`, `/dependencies` and their children; taken from the module list, not hard-coded). The flag defaults to off; every change goes through `logEntry()` with the reason `manual`, `incident` or `route`. The button sets the flag and navigates to `/overview`. The close control clears the flag and, on a preparedness route, navigates to `/planning`; it is disabled with the tooltip "Avsluta incidenten först" / "End the incident first" while an incident is active. A reload on a preparedness route keeps the mode because the route alone makes it active.
 
@@ -41,6 +45,8 @@ Stub pages (`/activities`, `/employees`, `/reporting`) show the page title and t
 Confidence: `'verified' | 'reported' | 'estimate' | 'illustrative'`. `Figure = { value: number | null; confidence; source?; asOf?; basis? }`; the UI renders the chip everywhere a figure is shown.
 
 ```ts
+export type CareForm = 'hospital-at-home' | 'asih';
+interface Organisation { id: string; name: string; careForm: CareForm; units: HomeSite[]; pack: HomePackId }   // src/data/packs/organisations.ts
 export type HomeEquipment = 'IV stand' | 'Pump' | 'Oxygen stationary' | 'Oxygen portable' | 'Self-monitoring kit';
 export type MonitoringLevel = 'none' | 'spot' | 'continuous';
 export type MonitoringReason = 'arrhythmia' | 'sepsis' | 'respiratory' | 'other';
@@ -88,19 +94,19 @@ Disruptions are records in time: `{ id; kind: 'road' | 'power' | 'water' | 'tele
 
 Realtime fields are simulated against the clock (§ 6) and arrive in the interface of § 7: `lastContactAt`, `hubBatteryPct`, `phoneBatteryPct`, `lastMeasurementAt`, `pumpNextChangeAt` (clock minutes).
 
-## 4. Packs
+## 4. Organisations and packs
 
-`homePacks: Record<HomePackId, HomePack>`. The default pack is `sus`; the second is `karolinska`. A pack carries its own sites, zones, patients, teams, infrastructure, messages, sources and where its OpenStreetMap files are (dynamic imports under `src/data/packs/geo/<pack>/`). Nothing in the app is specific to one customer.
+`organisations: Organisation[]` (`src/data/packs/organisations.ts`) holds the care providers of the build; `homePacks: Record<HomePackId, HomePack>` is reached through an organisation's `pack`. SUS is the only entry: `{ id: 'sus', name: 'Skånes universitetssjukhus', careForm: 'hospital-at-home', units: [SUS Lund, SUS Malmö], pack: 'sus' }`. A pack carries its own sites, zones, patients, teams, infrastructure, messages, sources and where its OpenStreetMap files are (dynamic imports under `src/data/packs/geo/<pack>/`). Nothing in the app is specific to one customer, and nothing in one organisation's environment refers to another's.
 
-**Unit selector** (far left, shows the name of the selected unit, as the platform does). The menu lists SUS, Lund, Malmö, and while the Karolinska pack is selected also Karolinska, Solna, Huddinge. Choosing a unit of a pack switches the pack (logged); choosing a site selects that site's patients and reachability. The Sjukhus hemma mode bar has a pack switch that works both ways.
+**Unit selector** (next to the logo, under the organisation's name; shows the name of the selected unit, as the platform does). The menu lists only the organisation's own units: for SUS, SUS (both sites, the default), Lund and Malmö. Choosing a unit selects that unit's patients and reachability. No choice in it leads to another organisation or pack.
 
-### 4.1 SUS (default)
+### 4.1 SUS
 
 Customer: Skånes universitetssjukhus. Sites `suslund` "SUS Lund" 55.7118, 13.1985 and `susmalmo` "SUS Malmö" 55.5889, 13.0010 (Google Places 2026-11-03, `reported`). Scopes: `sus` (both sites), `suslund`, `susmalmo`. 16 zones, 200 patients (seed 20261103), teams "Sjukhus hemma Lund" and "Sjukhus hemma Malmö", two cars each. Details in `DATA.md` § 3. Reachability runs from the sites of the selected unit.
 
-### 4.2 Karolinska
+### 4.2 Removed: Karolinska
 
-Customer: Karolinska Universitetssjukhuset. Sites Solna and Huddinge, ten zones, 150 patients (seed 20261102), four teams named ASIH Nord, ASIH City, ASIH Syd and ASIH Sydväst, two cars each. Details verbatim from the source in `DATA.md` § 4. Scopes `karolinska` (both sites), `solna`, `huddinge`.
+The Karolinska pack was removed from this repository (bunt 7). Karolinska does not have Sjukhus hemma, it has ASIH; the hospital-management product for Karolinska lives in Medoma-Resilience-KS. The Stockholm nodes and the pack's texts are kept in `docs/archive/karolinska-infra.md` for a coming ASIH pack (care form `asih`).
 
 ## 5. Map, layers and real geography
 
@@ -185,7 +191,7 @@ The incident module is lifted unchanged from the source: `/incident` lists the f
 
 ## 11. Batches
 
-Six batches on `main` (the repository was empty), then on the branch `center-build` with a pull request against `main`. Each: finish, `npm run typecheck`, `npm test`, `npm run build`, the definition of done checked in the running app, one commit named for the batch. The text of the prompt is in `PROMPTS.md`; the definitions of done are in the pull request.
+Six batches on `main` (the repository was empty), then on the branch `center-build` with a pull request against `main`; batch 7 on the branch `organisations`. Each: finish, `npm run typecheck`, `npm test`, `npm run build`, the definition of done checked in the running app, one commit named for the batch. The text of the prompt is in `PROMPTS.md`; the definitions of done are in the pull request.
 
 1. **Seeding and contract files.** Code lifted from the source with the hospital-management parts left out; contract files written; `/home`, `/planning`, `/patients`, `/incident` render with the Karolinska pack; nothing refers to a removed module.
 2. **The SUS pack** (additive; with the data model of § 3 and the realtime simulation, since the generators write both packs).
@@ -193,3 +199,4 @@ Six batches on `main` (the repository was empty), then on the branch `center-bui
 4. **Overview and handovers** (additive), with Equipment, Capacity, Dependencies and the realtime cards.
 5. **Closing a road and the detour** (behaviour-changing).
 6. **Map, polish and screenshots** (additive).
+7. **One organisation per environment** (behaviour-changing): the start page `/start-org`, the route prefix `#/o/<org>/`, `Organisation` in the data model, the pack switch and the Karolinska pack removed, "Byt organisation" in the user menu (§ 1, § 2, § 3, § 4).

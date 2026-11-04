@@ -1,6 +1,6 @@
 # Medoma Center – beredskapsläge (prototyp)
 
-En klickbar prototyp, enbart front-end, av **Medoma Center** med ett **beredskapsläge**: sjukhusets ledningscentral följer patienterna i ett sjukhus hemma-program och ser direkt vad som händer när något går sönder – en väg, strömmen, vattnet, mobilnätet, en värmebölja eller en leverantör. Förvalt paket är **Skånes universitetssjukhus (SUS, Lund och Malmö)**; **Karolinska** är det andra paketet. Prototypen är utlyft ur [Medoma-Resilience-KS](https://github.com/philipsmithmedoma/Medoma-Resilience-KS), där sjukhusledningsprodukten bor; gränssnittet mellan produkterna är överlämningsfilen (SPEC.md § 7).
+En klickbar prototyp, enbart front-end, av **Medoma Center** med ett **beredskapsläge**: sjukhusets ledningscentral följer patienterna i ett sjukhus hemma-program och ser direkt vad som händer när något går sönder – en väg, strömmen, vattnet, mobilnätet, en värmebölja eller en leverantör. Organisationen är **Skånes universitetssjukhus (SUS, Lund och Malmö)**; en vårdgivare ser aldrig en annan vårdgivares miljö (se SPEC.md § 1). Prototypen är utlyft ur [Medoma-Resilience-KS](https://github.com/philipsmithmedoma/Medoma-Resilience-KS), där sjukhusledningsprodukten bor; gränssnittet mellan produkterna är överlämningsfilen (SPEC.md § 7).
 
 Alla patienter, team, besök, personal och meddelanden är **syntetiska** och märkta så. Varje siffra bär konfidens (verifierad, uppgift, estimat, illustrativt) och källa enligt DATA.md; illustrativa värden presenteras aldrig som verifierade.
 
@@ -22,7 +22,7 @@ Appen gör inga nätverksanrop utöver kartplattorna från OpenStreetMap. Kartge
 
 ## Demoberättelsen (SUS)
 
-1. Öppna Medoma Center. Du är i vanlig drift: Patienter, Aktiviteter, Planering, Kapacitet, Medarbetare, Utrustning, Rapportering. Enhetsväljaren längst till vänster visar SUS (Lund och Malmö).
+1. Organisationen är **Skånes universitetssjukhus (SUS)**. Med en organisation hoppas startsidan över och appen öppnar direkt i SUS (adressen får prefixet `#/o/sus/`); finns fler organisationer väljer du en på startsidan med **Logga in**. Du är i vanlig drift: Patienter, Aktiviteter, Planering, Kapacitet, Medarbetare, Utrustning, Rapportering. Organisationens namn står vid logotypen och enhetsväljaren under det visar SUS med enheterna Lund och Malmö; användarmenyn längst till höger har **Byt organisation**.
 2. Tryck **Beredskap**. Läget byter navigering: Översikt, Sjukhus hemma, Incident, Beroenden; plattformens sidor ligger i menyn Medoma.
 3. **Översikt**: tre realtidskort (utan kontakt nu, kortaste hubbatteri, nästa pumpbyte), patienter hemma, påverkade nu, onåbara, batteri slut inom 2 h, aktiva störningar och incidentstatus. Allt är illustrativt och märkt så; realtidsfälten är simulerade.
 4. **Sjukhus hemma**: kartan visar Lund och Malmö med patienterna. Öppna fliken Från meddelande, välj Trafikverkets notis om Inre Ringvägen och **skapa vägstörningen från meddelandet**. Eller tryck på en vägsträcka i Stäng vägar: samma väg stängs inom 250 m åt båda hållen. Patienter som nu bara nås via omväg får "+N km".
@@ -30,7 +30,6 @@ Appen gör inga nätverksanrop utöver kartplattorna från OpenStreetMap. Kartge
 6. **Kontakta alla kritiska**. Där telefon inte går fram föreslår panelen Besök inom 2 h eller Ta in. Under Demo kan ett elavbrott utan registrering startas: panelen föreslår "Misstänkt störning" när patienterna tystnar.
 7. **Planering**: flytta ett besök till en ledig tid hos samma team.
 8. Markera en patient **Ta in**. Patienten hamnar i listan Överlämningar till sjukhus på Översikt; tryck **Exportera** och få JSON-filen som sjukhusprodukten läser.
-9. Byt paket med paketbrytaren i läget Sjukhus hemma till **Karolinska**: andra patienter, andra broar, samma produkt. Byt tillbaka via enhetsväljaren.
 
 ## Skärmbilder
 
@@ -38,4 +37,4 @@ Appen gör inga nätverksanrop utöver kartplattorna från OpenStreetMap. Kartge
 
 ## Datafilernas status
 
-Karolinska har hämtad OpenStreetMap-geometri (`src/data/packs/geo/karolinska/`). **SUS har fixtur tills `fetch-osm.yml` har körts**: `src/data/packs/geo/sus/fixture*.json` är handgjorda med samma schema och de verkliga vägnamnen, siffrorna är påhittade. Kör workflowen (Actions, Fetch OpenStreetMap data, paket `sus`) så öppnas en PR med de riktiga filerna, och testerna körs då mot dem.
+**SUS har fixtur tills `fetch-osm.yml` har körts**: `src/data/packs/geo/sus/fixture*.json` är handgjorda med samma schema och de verkliga vägnamnen, siffrorna är påhittade. Kör workflowen (Actions, Fetch OpenStreetMap data, paket `sus`) så öppnas en PR med de riktiga filerna, och testerna körs då mot dem.

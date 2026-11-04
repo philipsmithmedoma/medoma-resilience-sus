@@ -1,50 +1,55 @@
 import { describe, expect, it } from 'vitest';
-import { KAROLINSKA_PACK as pack } from '@/test/packs';
+import { SUS_PACK as pack } from '@/test/packs';
 import { detectKind, matchRoad, matchZone, parseDisruptionMessage, parseDuration } from './disruption-message';
 
-const ROADS = ['Essingeleden', 'Essinge', 'Västerbron', 'Centralbron', 'Uppsalavägen'];
+const ROADS = ['E22', 'Trafikplats Lund Södra', 'Inre Ringvägen', 'Yttre Ringvägen', 'Lundavägen'];
 const ctx = (clock = 14 * 60 + 50) => ({ roadNames: ROADS, zones: pack.homeZones, clock });
 const msg = (id: string) => pack.homeMessages.find((m) => m.id === id)!;
 
 describe('disruption from message (SPEC.md § 13.4)', () => {
-  it('the pack has three illustrative notices, each in both languages, from fictitious senders', () => {
-    expect(pack.homeMessages.map((m) => m.id)).toEqual(['hmsg-road', 'hmsg-power', 'hmsg-water']);
+  it('the pack has three Lund and three Malmö illustrative notices, each in both languages, from fictitious senders', () => {
+    expect(pack.homeMessages.map((m) => m.id)).toEqual(['smsg-road', 'smsg-power', 'smsg-water', 'smsg-m-road', 'smsg-m-power', 'smsg-m-water']);
     for (const m of pack.homeMessages) {
       expect(m.text.length).toBeGreaterThan(20);
       expect(m.textEn?.length).toBeGreaterThan(20);
       expect(m.roleEn).toBeTruthy();
     }
-    expect(msg('hmsg-road').text).toBe('Trafikverket: Essingeleden avstängd i båda riktningarna efter olycka vid Fredhäll, beräknad tid 4 timmar');
-    expect(msg('hmsg-power').text).toBe('Ellevio: strömavbrott i delar av Huddinge, beräknad återställning 20:30');
-    expect(msg('hmsg-water').text).toBe('Stockholm Vatten och Avfall: kokningsrekommendation i Solna tills vidare');
+    expect(msg('smsg-road').text).toBe('Trafikverket: E22 vid Lund Södra avstängd i båda riktningarna, beräknad tid 3 timmar');
+    expect(msg('smsg-power').text).toBe('Kraftringen: strömavbrott i Dalby, beräknad återställning 19:30');
+    expect(msg('smsg-water').text).toBe('VA SYD: kokningsrekommendation i Kävlinge tills vidare');
   });
 
-  it('the road notice prefills a road closure of Essingeleden, 4 hours, with the message id as note', () => {
-    expect(parseDisruptionMessage(msg('hmsg-road'), ctx())).toEqual({ kind: 'road', target: 'Essingeleden', startedAt: 14 * 60 + 50, durationHours: 4, note: 'hmsg-road' });
+  it('the road notice prefills a closure of the interchange Trafikplats Lund Södra (named without "Trafikplats"), 3 hours, with the message id as note', () => {
+    expect(parseDisruptionMessage(msg('smsg-road'), ctx())).toEqual({ kind: 'road', target: 'Trafikplats Lund Södra', startedAt: 14 * 60 + 50, durationHours: 3, note: 'smsg-road' });
+    expect(parseDisruptionMessage(msg('smsg-m-road'), ctx())).toEqual({ kind: 'road', target: 'Inre Ringvägen', startedAt: 14 * 60 + 50, durationHours: 2, note: 'smsg-m-road' });
   });
 
-  it('the power notice prefills a power outage in Huddinge ending 20:30', () => {
-    const p = parseDisruptionMessage(msg('hmsg-power'), ctx());
-    expect(p).toMatchObject({ kind: 'power', target: 'huddinge', note: 'hmsg-power' });
-    expect(p.durationHours).toBeCloseTo(5.67, 2);
-    expect(Math.round(p.startedAt + p.durationHours! * 60)).toBe(20 * 60 + 30);
+  it('the power notice prefills a power outage in Dalby ending 19:30', () => {
+    const p = parseDisruptionMessage(msg('smsg-power'), ctx());
+    expect(p).toMatchObject({ kind: 'power', target: 'dalby', note: 'smsg-power' });
+    expect(p.durationHours).toBeCloseTo(4.67, 2);
+    expect(Math.round(p.startedAt + p.durationHours! * 60)).toBe(19 * 60 + 30);
+    expect(parseDisruptionMessage(msg('smsg-m-power'), ctx())).toMatchObject({ kind: 'power', target: 'rosengard' });
   });
 
-  it('the water notice prefills a water disruption in Solna and leaves the duration empty ("tills vidare")', () => {
-    expect(parseDisruptionMessage(msg('hmsg-water'), ctx())).toEqual({ kind: 'water', target: 'solna', startedAt: 14 * 60 + 50, durationHours: null, note: 'hmsg-water' });
+  it('the water notice prefills a water disruption in Kävlinge and leaves the duration empty ("tills vidare")', () => {
+    expect(parseDisruptionMessage(msg('smsg-water'), ctx())).toEqual({ kind: 'water', target: 'kavlinge', startedAt: 14 * 60 + 50, durationHours: null, note: 'smsg-water' });
+    expect(parseDisruptionMessage(msg('smsg-m-water'), ctx())).toMatchObject({ kind: 'water', target: 'limhamn', durationHours: null });
   });
 
   it('reads the English texts too', () => {
-    expect(parseDisruptionMessage({ id: 'x', text: msg('hmsg-road').textEn! }, ctx())).toMatchObject({ kind: 'road', target: 'Essingeleden', durationHours: 4 });
-    expect(parseDisruptionMessage({ id: 'x', text: msg('hmsg-water').textEn! }, ctx())).toMatchObject({ kind: 'water', target: 'solna' });
+    expect(parseDisruptionMessage({ id: 'x', text: msg('smsg-road').textEn! }, ctx())).toMatchObject({ kind: 'road', target: 'Trafikplats Lund Södra', durationHours: 3 });
+    expect(parseDisruptionMessage({ id: 'x', text: msg('smsg-water').textEn! }, ctx())).toMatchObject({ kind: 'water', target: 'kavlinge' });
   });
 
-  it('matches the longest road name, a zone by its first words, and leaves the target empty when nothing matches', () => {
-    expect(matchRoad('Essingeleden avstängd', ROADS)).toBe('Essingeleden');
+  it('matches the longest road name, a zone by its name, and leaves the target empty when nothing matches', () => {
+    expect(matchRoad('E22 avstängd', ROADS)).toBe('E22');
+    expect(matchRoad('Inre Ringvägen avstängd', ROADS)).toBe('Inre Ringvägen');
+    expect(matchRoad('E22 vid Lund Södra avstängd', ROADS)).toBe('Trafikplats Lund Södra');
     expect(matchRoad('Okänd väg avstängd', ROADS)).toBe('');
-    expect(matchZone('kokning i Solna', pack.homeZones)).toBe('solna');
-    expect(matchZone('strömavbrott i Täby', pack.homeZones)).toBe('taby');
-    expect(matchZone('strömavbrott i Skåne', pack.homeZones)).toBe('');
+    expect(matchZone('kokning i Limhamn', pack.homeZones)).toBe('limhamn');
+    expect(matchZone('strömavbrott i Hörby', pack.homeZones)).toBe('horby');
+    expect(matchZone('strömavbrott i Stockholm', pack.homeZones)).toBe('');
   });
 
   it('parses hours, decimals and a clock time that has already passed today as tomorrow', () => {
@@ -52,6 +57,6 @@ describe('disruption from message (SPEC.md § 13.4)', () => {
     expect(parseDuration('estimated 3 hours', 0)).toBe(3);
     expect(parseDuration('återställning 08:00', 14 * 60)).toBe(18);
     expect(parseDuration('tills vidare', 0)).toBeNull();
-    expect(detectKind('Stockholm Vatten och Avfall: Essingeleden stängd')).toBe('road');
+    expect(detectKind('Trafikverket: E22 stängd')).toBe('road');
   });
 });

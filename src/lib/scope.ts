@@ -1,14 +1,9 @@
-// Scope helpers (SPEC.md § 4): the scope selector picks one unit of a home pack (a site) or all of its sites.
+// Scope helpers (SPEC.md § 4): the scope selector picks one unit of the organisation's pack (a site) or all of its sites.
 import type { HomePackId, HomeScope, LocalizedText } from '@/data/types';
-import { homePacks, HOME_PACK_IDS } from '@/data/packs/home-packs';
+import { homePacks } from '@/data/packs/home-packs';
 import { lt } from '@/lib/i18n';
 
 export const defaultScopeOf = (packId: HomePackId): string => homePacks[packId].defaultScope;
-
-/** The pack a scope id belongs to; null for an unknown id. */
-export function packOfScope(scope: string): HomePackId | null {
-  return HOME_PACK_IDS.find((id) => homePacks[id].scopes.some((s) => s.id === scope)) ?? null;
-}
 
 export function scopeOf(packId: HomePackId, scope: string): HomeScope {
   const pack = homePacks[packId];
@@ -27,7 +22,5 @@ export function scopeName(packId: HomePackId, scope: string): string {
 
 export const scopeLabel = (label: LocalizedText): string => lt(label);
 
-/** The packs whose units the scope selector lists: those that are always listed, and the active one. */
-export function scopeMenu(activePack: HomePackId): Array<{ pack: HomePackId; scopes: HomeScope[] }> {
-  return HOME_PACK_IDS.filter((id: HomePackId) => (id as string) === activePack || homePacks[id].scopeMenu === 'always').map((id) => ({ pack: id, scopes: homePacks[id].scopes }));
-}
+/** The units the scope selector lists: the scopes of the organisation's pack (the whole organisation first, then each unit). */
+export const scopeMenu = (packId: HomePackId): HomeScope[] => homePacks[packId].scopes;

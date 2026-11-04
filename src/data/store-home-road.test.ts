@@ -3,20 +3,12 @@ import { useStore } from './store';
 import { homeSitesInScope } from '@/lib/home-sites';
 import { impact } from '@/lib/reachability';
 import { getRoadModel, loadRoadModel } from '@/lib/roadModel';
-import { roadsAtTap, waysNearPoint, type RoadProps } from '@/lib/roadGraph';
+import { roadKey, roadsAtTap, waysNearPoint, type RoadProps } from '@/lib/roadGraph';
 import { resetStoreTo } from '@/test/packs';
+import { HOJE_A, isE22, nearestE22 } from '@/test/roads';
 import type { HomePackId } from './types';
 
 const s = () => useStore.getState();
-
-/** The first vertex of a way and the way's properties, as a tap on the segment would give them. */
-function tapOn(wayId: number): { props: RoadProps; at: { lat: number; lng: number } } {
-  const g = getRoadModel()!.graph;
-  const i = g.wayIndexById.get(wayId)!;
-  const e = g.edgeWay.findIndex((w) => w === i);
-  const v = g.edgeFrom[e];
-  return { props: { ...g.ways[i], lanes: null }, at: { lat: g.lat[v], lng: g.lng[v] } };
-}
 
 async function load(pack: HomePackId) {
   resetStoreTo(pack);
@@ -39,20 +31,20 @@ describe('a tap on a road closes the same road within 250 m, in both directions 
   describe('SUS: the E22 at Höje å', () => {
     beforeAll(() => load('sus'));
 
-    it('closes every way that shares name or ref with the tapped E22 way within 250 m, labels the record "<name> vid <place>" and delays or isolates patients', () => {
-      const node = s().pack.infraNodes.find((n) => n.id === 'r-hoje')!;
+    it('closes both carriageways of the E22 within 250 m of the tap, labels the record "<name> vid <place>" and delays or isolates at least one patient', () => {
       const g = getRoadModel()!.graph;
-      const near = waysNearPoint(g, node.lat, node.lng, 300).map((i) => g.ways[i]).filter((w) => w.ref === 'E22' || w.name === 'E22');
-      expect(near.length).toBeGreaterThan(0);
-      const { props, at } = tapOn(near[0].id);
+      const { props, at } = nearestE22(g, HOJE_A);
+      expect(isE22(props.ref)).toBe(true);
       s().closeRoadAt(props, at);
       const want = expectedAt(props, at);
-      expect(want.size).toBeGreaterThanOrEqual(1);
+      expect(want.size).toBeGreaterThanOrEqual(2);
       expect(s().home.blockedWays).toEqual(want);
       expect(roadsAtTap(g, props, at.lat, at.lng).map(String).sort()).toEqual([...want].sort());
-      // Oneway carriageways come in pairs: every closed oneway way has its opposite closed too.
-      const oneway = [...want].filter((id) => g.ways[g.wayIndexById.get(Number(id))!].oneway);
-      if (oneway.length) expect(oneway.length).toBeGreaterThanOrEqual(2);
+      // Both carriageways: at least two oneway ways with the road's ref are closed, and every closed way lies within 250 m of the tap.
+      const closed = [...want].map((id) => g.ways[g.wayIndexById.get(Number(id))!]);
+      expect(closed.filter((w) => isE22(w.ref) && w.oneway).length).toBeGreaterThanOrEqual(2);
+      const within = new Set(waysNearPoint(g, at.lat, at.lng, 250).map((i) => String(g.ways[i].id)));
+      for (const id of want) expect(within.has(id)).toBe(true);
       const d = s().home.disruptions.at(-1)!;
       expect(d).toMatchObject({ kind: 'road', targetKind: 'ways', source: 'map' });
       expect(d.label.sv).toMatch(/ vid /);
@@ -67,10 +59,11 @@ describe('a tap on a road closes the same road within 250 m, in both directions 
 
     it('leaves "Block whole road" as it was: every way with the name, by road key', () => {
       const g = getRoadModel()!.graph;
-      const e22 = g.ways.find((w) => w.name === 'E22')!;
-      s().toggleBlockedRoad(`${e22.name}|${e22.ref ?? ''}`.replace(/\|$/, ''));
+      const { props } = nearestE22(g, HOJE_A);
+      const key = roadKey(props)!;
+      s().toggleBlockedRoad(key);
       expect(s().home.blockedRoads.size).toBe(1);
-      s().toggleBlockedRoad(`${e22.name}|${e22.ref ?? ''}`.replace(/\|$/, ''));
+      s().toggleBlockedRoad(key);
       expect(s().home.blockedRoads.size).toBe(0);
     });
 
@@ -78,24 +71,6 @@ describe('a tap on a road closes the same road within 250 m, in both directions 
       const g = getRoadModel()!.graph;
       const lone = { id: 987654321, name: null, ref: null };
       expect(roadsAtTap(g, lone, 55.7, 13.19)).toEqual([987654321]);
-    });
-  });
-
-  describe('Karolinska: Essingeleden', () => {
-    beforeAll(() => load('karolinska'));
-
-    it('closes every way named Essingeleden within 250 m of the tap, both directions', () => {
-      const g = getRoadModel()!.graph;
-      const ess = g.ways.filter((w) => w.name === 'Essingeleden');
-      expect(ess.length).toBeGreaterThan(0);
-      const { props, at } = tapOn(ess[0].id);
-      s().closeRoadAt(props, at);
-      const want = expectedAt(props, at);
-      expect(s().home.blockedWays).toEqual(want);
-      expect([...want].every((id) => g.ways[g.wayIndexById.get(Number(id))!].name === 'Essingeleden' || g.ways[g.wayIndexById.get(Number(id))!].ref === props.ref)).toBe(true);
-      if (ess.some((w) => w.oneway)) expect(want.size).toBeGreaterThanOrEqual(2);
-      expect(s().home.disruptions.at(-1)!.label.sv).toMatch(/^Essingeleden vid /);
-      s().resetHomeDisruptions();
     });
   });
 });

@@ -14,7 +14,7 @@ import { fictionalMarking } from '@/lib/home-sites';
 import { getRoadModel } from '@/lib/roadModel';
 import { formatClock } from '@/lib/time';
 import { Button, buttonVariants } from '@/components/ui/button';
-import { Link } from 'react-router-dom';
+import { Link } from '@/app/router';
 import { PatientActions } from './PatientActions';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
